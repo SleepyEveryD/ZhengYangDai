@@ -1,30 +1,38 @@
-import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { ArrowLeftIcon, MapPinIcon, TargetIcon, NavigationIcon, LogInIcon } from 'lucide-react';
-import { Page, User } from '../App';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  ArrowLeftIcon,
+  MapPinIcon,
+  TargetIcon,
+  NavigationIcon,
+  LogInIcon,
+} from "lucide-react";
+import type { User } from "../types/user";
 
 type PathPlanningProps = {
-  navigateTo: (page: Page) => void;
   user?: User;
 };
 
-export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+export default function PathPlanning({ user }: PathPlanningProps) {
+  const navigate = useNavigate();
+
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
 
   const suggestions = [
-    'Beijing Chaoyang District CBD',
-    'Beijing Haidian District Zhongguancun',
-    'Beijing Dongcheng District Tiananmen',
-    'Beijing Xicheng District Xidan',
+    "Beijing Chaoyang District CBD",
+    "Beijing Haidian District Zhongguancun",
+    "Beijing Dongcheng District Tiananmen",
+    "Beijing Xicheng District Xidan",
   ];
 
   const handleSearch = () => {
     if (origin && destination) {
-      navigateTo('pathResults');
+      navigate("/path/results");
     }
   };
 
@@ -35,7 +43,7 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('map')}
+          onClick={() => navigate("/map")}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -138,7 +146,7 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
             <Button
               variant="outline"
               className="h-12 justify-start"
-              onClick={() => setOrigin('Current Location')}
+              onClick={() => setOrigin("Current Location")}
             >
               <NavigationIcon className="w-4 h-4 mr-2" />
               Current Location
@@ -146,7 +154,7 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
             <Button
               variant="outline"
               className="h-12 justify-start"
-              onClick={() => setOrigin('Beijing Chaoyang District CBD')}
+              onClick={() => setOrigin("Beijing Chaoyang District CBD")}
             >
               <MapPinIcon className="w-4 h-4 mr-2" />
               Office
@@ -154,7 +162,9 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
             <Button
               variant="outline"
               className="h-12 justify-start"
-              onClick={() => setDestination('Beijing Haidian District Zhongguancun')}
+              onClick={() =>
+                setDestination("Beijing Haidian District Zhongguancun")
+              }
             >
               <MapPinIcon className="w-4 h-4 mr-2" />
               Home
@@ -162,7 +172,9 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
             <Button
               variant="outline"
               className="h-12 justify-start"
-              onClick={() => setDestination('Beijing Dongcheng District Tiananmen')}
+              onClick={() =>
+                setDestination("Beijing Dongcheng District Tiananmen")
+              }
             >
               <MapPinIcon className="w-4 h-4 mr-2" />
               Gym
@@ -191,7 +203,7 @@ export default function PathPlanning({ navigateTo, user }: PathPlanningProps) {
             <Button
               variant="outline"
               className="w-full h-10 border-blue-600 text-blue-600 hover:bg-blue-50"
-              onClick={() => navigateTo('login')}
+              onClick={() => navigate("/login")}
             >
               <LogInIcon className="w-4 h-4 mr-2" />
               Login Now

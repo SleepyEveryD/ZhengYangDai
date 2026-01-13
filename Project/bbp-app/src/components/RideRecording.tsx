@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { StopCircleIcon, AlertCircleIcon, CheckCircleIcon, XIcon } from 'lucide-react';
-import MapView from './MapView';
-import { Page, Issue } from '../App';
-import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'sonner@2.0.3';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
+import {
+  StopCircleIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
+  XIcon,
+} from "lucide-react";
+import MapView from "./MapView";
+import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
+import type { Issue } from "../types/issue";
 
-type RideRecordingProps = {
-  navigateTo: (page: Page, data?: any) => void;
-};
+export default function RideRecording() {
+  const navigate = useNavigate();
 
-export default function RideRecording({ navigateTo }: RideRecordingProps) {
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
@@ -20,35 +24,35 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
   useEffect(() => {
-    // Simulate ride recording
     const timer = setInterval(() => {
       setDuration((prev) => prev + 1);
       setDistance((prev) => prev + 0.01);
       setSpeed(Math.random() * 15 + 10);
 
-      // Add to path
       setPath((prev) => [
         ...prev,
         [39.9042 + Math.random() * 0.01, 116.4074 + Math.random() * 0.01],
       ]);
 
-      // Randomly detect issues
       if (Math.random() < 0.05) {
         const newIssue: Issue = {
           id: `issue-${Date.now()}`,
-          type: 'pothole',
-          location: [39.9042 + Math.random() * 0.01, 116.4074 + Math.random() * 0.01],
-          severity: 'medium',
-          status: 'pending',
+          type: "pothole",
+          location: [
+            39.9042 + Math.random() * 0.01,
+            116.4074 + Math.random() * 0.01,
+          ],
+          severity: "medium",
+          status: "pending",
           date: new Date().toISOString(),
           autoDetected: true,
         };
+
         setCurrentIssue(newIssue);
         setShowIssueAlert(true);
-        
-        // Vibration simulation (toast notification)
-        toast.warning('Road issue detected', {
-          description: 'Please confirm to report this issue',
+
+        toast.warning("Road issue detected", {
+          description: "Please confirm to report this issue",
           duration: 3000,
         });
       }
@@ -60,16 +64,21 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const handleConfirmIssue = () => {
     if (currentIssue) {
-      setDetectedIssues((prev) => [...prev, { ...currentIssue, status: 'confirmed' }]);
+      setDetectedIssues((prev) => [
+        ...prev,
+        { ...currentIssue, status: "confirmed" },
+      ]);
     }
     setShowIssueAlert(false);
     setCurrentIssue(null);
-    toast.success('Issue confirmed');
+    toast.success("Issue confirmed");
   };
 
   const handleIgnoreIssue = () => {
@@ -78,7 +87,7 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
   };
 
   const handleStop = () => {
-    navigateTo('rideRecordConfirm', {
+    const ride = {
       id: `ride-${Date.now()}`,
       date: new Date().toISOString(),
       distance: parseFloat(distance.toFixed(2)),
@@ -87,12 +96,16 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
       maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
       path,
       issues: detectedIssues,
+    };
+
+    navigate("/ride/confirm", {
+      state: { ride },
     });
   };
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
-      {/* Map - Full Screen */}
+      {/* Map */}
       <div className="flex-1 relative">
         <MapView
           userPath={path}
@@ -104,7 +117,7 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
         />
       </div>
 
-      {/* Stats Panel */}
+      {/* Stats */}
       <motion.div
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -116,11 +129,15 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
             <p className="text-gray-600">Duration</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">{distance.toFixed(2)} km</p>
+            <p className="text-gray-900 mb-1">
+              {distance.toFixed(2)} km
+            </p>
             <p className="text-gray-600">Distance</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">{speed.toFixed(1)} km/h</p>
+            <p className="text-gray-900 mb-1">
+              {speed.toFixed(1)} km/h
+            </p>
             <p className="text-gray-600">Speed</p>
           </div>
         </div>
@@ -133,7 +150,7 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-80 max-w-[90%]"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-80"
           >
             <motion.div
               animate={{ scale: [1, 1.1, 1] }}
@@ -141,12 +158,14 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
             >
               <AlertCircleIcon className="w-16 h-16 text-orange-600 mx-auto mb-4" />
             </motion.div>
+
             <h3 className="text-gray-900 text-center mb-2">
               Road Issue Detected
             </h3>
             <p className="text-gray-600 text-center mb-6">
-              System auto-detected possible pothole, confirm to report?
+              System auto-detected possible pothole. Confirm?
             </p>
+
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -172,7 +191,7 @@ export default function RideRecording({ navigateTo }: RideRecordingProps) {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
       >
         <Button
           className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"

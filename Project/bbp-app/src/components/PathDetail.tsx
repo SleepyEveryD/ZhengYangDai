@@ -1,19 +1,38 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { ArrowLeftIcon, StarIcon, MessageCircleIcon, TrendingUpIcon, AlertCircleIcon, LogInIcon } from 'lucide-react';
-import { Badge } from './ui/badge';
-import { Card, CardContent } from './ui/card';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import MapView from './MapView';
-import { Page, Route, User } from '../App';
+import React from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "./ui/button";
+import {
+  ArrowLeftIcon,
+  StarIcon,
+  MessageCircleIcon,
+  TrendingUpIcon,
+  AlertCircleIcon,
+  LogInIcon,
+} from "lucide-react";
+import { Badge } from "./ui/badge";
+import { Card, CardContent } from "./ui/card";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import MapView from "./MapView";
+import type { Route } from "../types/route";
+import type { User } from "../types/user";
+
+/**
+ * ⚠️ 当前阶段说明：
+ * - route 数据这里仍然是“页面级假数据 / 临时状态”
+ * - 后续会从 store / API 获取
+ */
 
 type PathDetailProps = {
-  route: Route | null;
-  navigateTo: (page: Page) => void;
   user?: User;
+  routes?: Route[]; // 临时：用于从列表中查找
 };
 
-export default function PathDetail({ route, navigateTo, user }: PathDetailProps) {
+export default function PathDetail({ user, routes = [] }: PathDetailProps) {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+
+  const route = routes.find((r) => r.id === id);
+
   if (!route) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -22,33 +41,33 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
     );
   }
 
-  const getConditionColor = (condition: string) => {
+  const getConditionColor = (condition: Route["condition"]) => {
     switch (condition) {
-      case 'excellent':
-        return 'bg-green-100 text-green-800';
-      case 'good':
-        return 'bg-blue-100 text-blue-800';
-      case 'fair':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'poor':
-        return 'bg-red-100 text-red-800';
+      case "excellent":
+        return "bg-green-100 text-green-800";
+      case "good":
+        return "bg-blue-100 text-blue-800";
+      case "fair":
+        return "bg-yellow-100 text-yellow-800";
+      case "poor":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getConditionText = (condition: string) => {
+  const getConditionText = (condition: Route["condition"]) => {
     switch (condition) {
-      case 'excellent':
-        return 'Excellent';
-      case 'good':
-        return 'Good';
-      case 'fair':
-        return 'Fair';
-      case 'poor':
-        return 'Poor';
+      case "excellent":
+        return "Excellent";
+      case "good":
+        return "Good";
+      case "fair":
+        return "Fair";
+      case "poor":
+        return "Poor";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   };
 
@@ -59,7 +78,7 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('pathResults')}
+          onClick={() => navigate("/path/results")}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -88,7 +107,9 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <StarIcon className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                  <span className="text-gray-900">{route.rating} points</span>
+                  <span className="text-gray-900">
+                    {route.rating} points
+                  </span>
                 </div>
                 <Badge className={getConditionColor(route.condition)}>
                   {getConditionText(route.condition)}
@@ -105,7 +126,9 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                   <p className="text-gray-500">Est. Duration</p>
                 </div>
                 <div>
-                  <p className="text-gray-900">{route.segments.length} seg</p>
+                  <p className="text-gray-900">
+                    {route.segments.length} seg
+                  </p>
                   <p className="text-gray-500">Segments</p>
                 </div>
               </div>
@@ -150,13 +173,13 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                     <div className="flex items-start gap-3">
                       <div
                         className={`w-1 h-full rounded-full ${
-                          segment.condition === 'excellent'
-                            ? 'bg-green-500'
-                            : segment.condition === 'good'
-                            ? 'bg-blue-500'
-                            : segment.condition === 'fair'
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
+                          segment.condition === "excellent"
+                            ? "bg-green-500"
+                            : segment.condition === "good"
+                            ? "bg-blue-500"
+                            : segment.condition === "fair"
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
                         }`}
                       />
                       <div className="flex-1">
@@ -164,14 +187,21 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                           <span className="text-gray-900">
                             Segment {index + 1}
                           </span>
-                          <Badge className={getConditionColor(segment.condition)} variant="secondary">
+                          <Badge
+                            className={getConditionColor(
+                              segment.condition
+                            )}
+                            variant="secondary"
+                          >
                             {getConditionText(segment.condition)}
                           </Badge>
                         </div>
                         <p className="text-gray-600 mb-2">
                           {segment.description}
                         </p>
-                        <p className="text-gray-500">{segment.distance} km</p>
+                        <p className="text-gray-500">
+                          {segment.distance} km
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -188,6 +218,7 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                 User Reviews ({route.comments.length})
               </span>
             </div>
+
             {route.comments.length > 0 ? (
               <div className="space-y-3">
                 {route.comments.map((comment, index) => (
@@ -201,8 +232,12 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-900">{comment.user}</span>
-                            <span className="text-gray-500">{comment.date}</span>
+                            <span className="text-gray-900">
+                              {comment.user}
+                            </span>
+                            <span className="text-gray-500">
+                              {comment.date}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 mb-2">
                             {Array.from({ length: 5 }).map((_, i) => (
@@ -210,13 +245,15 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
                                 key={i}
                                 className={`w-4 h-4 ${
                                   i < comment.rating
-                                    ? 'text-yellow-500 fill-yellow-500'
-                                    : 'text-gray-300'
+                                    ? "text-yellow-500 fill-yellow-500"
+                                    : "text-gray-300"
                                 }`}
                               />
                             ))}
                           </div>
-                          <p className="text-gray-600">{comment.content}</p>
+                          <p className="text-gray-600">
+                            {comment.content}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -227,7 +264,9 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
               <Card>
                 <CardContent className="p-8 text-center">
                   <MessageCircleIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500">No user reviews yet</p>
+                  <p className="text-gray-500">
+                    No user reviews yet
+                  </p>
                 </CardContent>
               </Card>
             )}
@@ -250,7 +289,7 @@ export default function PathDetail({ route, navigateTo, user }: PathDetailProps)
             <Button
               variant="outline"
               className="w-full h-10 border-blue-600 text-blue-600 hover:bg-blue-50"
-              onClick={() => navigateTo('login')}
+              onClick={() => navigate("/login")}
             >
               <LogInIcon className="w-4 h-4 mr-2" />
               Login Now

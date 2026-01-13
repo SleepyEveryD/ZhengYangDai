@@ -1,14 +1,17 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { ArrowLeftIcon, CircleDotIcon, MapIcon, AlertTriangleIcon } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Page } from '../App';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
+import {
+  ArrowLeftIcon,
+  CircleDotIcon,
+  MapIcon,
+  AlertTriangleIcon,
+} from "lucide-react";
+import { Card, CardContent } from "./ui/card";
 
-type RideRecordPrepareProps = {
-  navigateTo: (page: Page) => void;
-};
+export default function RideRecordPrepare() {
+  const navigate = useNavigate();
 
-export default function RideRecordPrepare({ navigateTo }: RideRecordPrepareProps) {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-green-50 to-blue-50">
       {/* Header */}
@@ -16,7 +19,7 @@ export default function RideRecordPrepare({ navigateTo }: RideRecordPrepareProps
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('map')}
+          onClick={() => navigate("/map")}
           className="h-10 w-10 bg-white"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -73,8 +76,8 @@ export default function RideRecordPrepare({ navigateTo }: RideRecordPrepareProps
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4">
               <p className="text-blue-900">
-                <strong>Note:</strong> Please ensure GPS location and sensor permissions are granted
-                for the best recording experience.
+                <strong>Note:</strong> Please ensure GPS location and sensor
+                permissions are granted for the best recording experience.
               </p>
             </CardContent>
           </Card>
@@ -85,7 +88,7 @@ export default function RideRecordPrepare({ navigateTo }: RideRecordPrepareProps
       <div className="p-4">
         <Button
           className="w-full h-16 bg-green-600 hover:bg-green-700 shadow-lg"
-          onClick={() => navigateTo('rideRecording')}
+          onClick={() => navigate("/ride/recording")}
         >
           <CircleDotIcon className="w-6 h-6 mr-2" />
           Start Riding

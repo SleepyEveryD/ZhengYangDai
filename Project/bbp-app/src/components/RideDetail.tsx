@@ -1,17 +1,25 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { ArrowLeftIcon, CalendarIcon, ClockIcon, RulerIcon, TrendingUpIcon, ZapIcon, AlertCircleIcon } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import MapView from './MapView';
-import { Page, Ride } from '../App';
+import React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Button } from "./ui/button";
+import {
+  ArrowLeftIcon,
+  CalendarIcon,
+  ClockIcon,
+  RulerIcon,
+  TrendingUpIcon,
+  ZapIcon,
+  AlertCircleIcon,
+} from "lucide-react";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import MapView from "./MapView";
+import type { Ride } from "../types/ride";
 
-type RideDetailProps = {
-  ride: Ride | null;
-  navigateTo: (page: Page) => void;
-};
+export default function RideDetail() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const ride = (location.state as { ride?: Ride })?.ride;
 
-export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
   if (!ride) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -24,59 +32,61 @@ export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    return hours > 0
+      ? `${hours}:${mins.toString().padStart(2, "0")}:${secs
+          .toString()
+          .padStart(2, "0")}`
+      : `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getIssueTypeText = (type: string) => {
     switch (type) {
-      case 'pothole':
-        return 'Pothole';
-      case 'crack':
-        return 'Crack';
-      case 'obstacle':
-        return 'Obstacle';
+      case "pothole":
+        return "Pothole";
+      case "crack":
+        return "Crack";
+      case "obstacle":
+        return "Obstacle";
       default:
-        return 'Other';
+        return "Other";
     }
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-orange-100 text-orange-800';
-      case 'low':
-        return 'bg-yellow-100 text-yellow-800';
+      case "high":
+        return "bg-red-100 text-red-800";
+      case "medium":
+        return "bg-orange-100 text-orange-800";
+      case "low":
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getSeverityText = (severity: string) => {
     switch (severity) {
-      case 'high':
-        return 'Severe';
-      case 'medium':
-        return 'Moderate';
-      case 'low':
-        return 'Minor';
+      case "high":
+        return "Severe";
+      case "medium":
+        return "Moderate";
+      case "low":
+        return "Minor";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   };
 
@@ -89,7 +99,7 @@ export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('rideHistory')}
+          onClick={() => navigate("/rides")}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -110,69 +120,34 @@ export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
         </div>
 
         <div className="p-4 space-y-6">
-          {/* Date & Time */}
+          {/* Date */}
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-gray-400" />
-            <span className="text-gray-600">{formatDate(ride.date)}</span>
+            <span className="text-gray-600">
+              {formatDate(ride.date)}
+            </span>
           </div>
 
-          {/* Main Stats */}
+          {/* Stats */}
           <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <RulerIcon className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Total Distance</p>
-                    <p className="text-gray-900">{ride.distance} km</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <ClockIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Total Duration</p>
-                    <p className="text-gray-900">{formatTime(ride.duration)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                    <TrendingUpIcon className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Avg Speed</p>
-                    <p className="text-gray-900">{ride.avgSpeed} km/h</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <ZapIcon className="w-6 h-6 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Max Speed</p>
-                    <p className="text-gray-900">{ride.maxSpeed} km/h</p>
-                  </div>
-                </div>
-              </div>
+            <CardContent className="p-4 grid grid-cols-2 gap-4">
+              <Stat icon={<RulerIcon />} label="Distance" value={`${ride.distance} km`} />
+              <Stat icon={<ClockIcon />} label="Duration" value={formatTime(ride.duration)} />
+              <Stat icon={<TrendingUpIcon />} label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
+              <Stat icon={<ZapIcon />} label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
 
-          {/* Additional Stats */}
+          {/* Extra */}
           <Card>
-            <CardContent className="p-4">
-              <h3 className="text-gray-900 mb-4">Other Data</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-gray-600 mb-1">Calories Burned</p>
-                  <p className="text-gray-900">{calories} kcal</p>
-                </div>
-                <div>
-                  <p className="text-gray-600 mb-1">Reported Issues</p>
-                  <p className="text-gray-900">{ride.issues.length} items</p>
-                </div>
+            <CardContent className="p-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">Calories</p>
+                <p className="text-gray-900">{calories} kcal</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Reported Issues</p>
+                <p className="text-gray-900">{ride.issues.length}</p>
               </div>
             </CardContent>
           </Card>
@@ -183,37 +158,29 @@ export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircleIcon className="w-5 h-5 text-gray-600" />
                 <span className="text-gray-900">
-                  Reported Road Issues ({ride.issues.length})
+                  Reported Issues ({ride.issues.length})
                 </span>
               </div>
+
               <div className="space-y-3">
                 {ride.issues.map((issue) => (
                   <Card key={issue.id}>
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-gray-900">
-                              {getIssueTypeText(issue.type)}
-                            </span>
-                            <Badge className={getSeverityColor(issue.severity)} variant="secondary">
-                              {getSeverityText(issue.severity)}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600">
-                            Location: {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
-                          </p>
-                        </div>
-                        {issue.autoDetected && (
-                          <Badge variant="outline">Auto-detected</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between pt-3 border-t">
-                        <span className="text-gray-500">Status</span>
-                        <Badge className="bg-green-100 text-green-800">
-                          {issue.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-900">
+                          {getIssueTypeText(issue.type)}
+                        </span>
+                        <Badge className={getSeverityColor(issue.severity)}>
+                          {getSeverityText(issue.severity)}
                         </Badge>
                       </div>
+                      <p className="text-gray-600">
+                        {issue.location[0].toFixed(4)},{" "}
+                        {issue.location[1].toFixed(4)}
+                      </p>
+                      <Badge className="mt-2 bg-green-100 text-green-800">
+                        Confirmed
+                      </Badge>
                     </CardContent>
                   </Card>
                 ))}
@@ -221,6 +188,28 @@ export default function RideDetail({ ride, navigateTo }: RideDetailProps) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+        {icon}
+      </div>
+      <div>
+        <p className="text-gray-600">{label}</p>
+        <p className="text-gray-900">{value}</p>
       </div>
     </div>
   );

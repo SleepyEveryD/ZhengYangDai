@@ -1,17 +1,25 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { ArrowLeftIcon, BikeIcon, MapPinIcon, AlertCircleIcon, LogOutIcon, UserIcon } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { Page, User } from '../App';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
+import {
+  ArrowLeftIcon,
+  BikeIcon,
+  MapPinIcon,
+  AlertCircleIcon,
+  LogOutIcon,
+  UserIcon,
+} from "lucide-react";
+import { Card, CardContent } from "./ui/card";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import type { User } from "../types/user";
 
 type ProfileProps = {
-  user: User;
-  navigateTo: (page: Page) => void;
-  onLogout: () => void;
+  user?: User;
 };
 
-export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
+export default function Profile({ user }: ProfileProps) {
+  const navigate = useNavigate();
+
   if (!user) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -20,6 +28,11 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
     );
   }
 
+  const handleLogout = () => {
+    // ⚠️ 后续这里可以接 store / API
+    navigate("/login");
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -27,7 +40,7 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('map')}
+          onClick={() => navigate("/map")}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -53,7 +66,9 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="text-white mb-1">{user.totalDistance.toFixed(1)}</p>
+              <p className="text-white mb-1">
+                {user.totalDistance.toFixed(1)}
+              </p>
               <p className="text-white/80">kilometers</p>
             </div>
             <div className="text-center">
@@ -80,7 +95,9 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
               <CardContent className="p-4 text-center">
                 <MapPinIcon className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <p className="text-gray-900 mb-1">{user.totalDistance.toFixed(1)} km</p>
+                <p className="text-gray-900 mb-1">
+                  {user.totalDistance.toFixed(1)} km
+                </p>
                 <p className="text-gray-600">Total Distance</p>
               </CardContent>
             </Card>
@@ -92,13 +109,18 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
               <h3 className="text-gray-900 mb-4">This Week's Stats</h3>
               <div className="h-32 flex items-end justify-between gap-2">
                 {[12, 8, 15, 20, 18, 25, 22].map((height, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center">
+                  <div
+                    key={index}
+                    className="flex-1 flex flex-col items-center"
+                  >
                     <div
                       className="w-full bg-green-500 rounded-t transition-all hover:bg-green-600"
-                      style={{ height: `${(height / 25) * 100}%` }}
+                      style={{
+                        height: `${(height / 25) * 100}%`,
+                      }}
                     />
                     <span className="text-gray-500 mt-2">
-                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]}
+                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]}
                     </span>
                   </div>
                 ))}
@@ -110,7 +132,7 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
           <div className="space-y-2">
             <Card
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigateTo('rideHistory')}
+              onClick={() => navigate("/rides")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -118,17 +140,19 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
                     <BikeIcon className="w-6 h-6 text-green-600" />
                     <div>
                       <p className="text-gray-900">My Rides</p>
-                      <p className="text-gray-500">{user.totalRides} records</p>
+                      <p className="text-gray-500">
+                        {user.totalRides} records
+                      </p>
                     </div>
                   </div>
-                  <ArrowLeftIcon className="w-5 h-5 text-gray-400 transform rotate-180" />
+                  <ArrowLeftIcon className="w-5 h-5 text-gray-400 rotate-180" />
                 </div>
               </CardContent>
             </Card>
 
             <Card
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigateTo('reportHistory')}
+              onClick={() => navigate("/reports")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -136,20 +160,22 @@ export default function Profile({ user, navigateTo, onLogout }: ProfileProps) {
                     <AlertCircleIcon className="w-6 h-6 text-orange-600" />
                     <div>
                       <p className="text-gray-900">My Reports</p>
-                      <p className="text-gray-500">{user.totalReports} records</p>
+                      <p className="text-gray-500">
+                        {user.totalReports} records
+                      </p>
                     </div>
                   </div>
-                  <ArrowLeftIcon className="w-5 h-5 text-gray-400 transform rotate-180" />
+                  <ArrowLeftIcon className="w-5 h-5 text-gray-400 rotate-180" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Logout Button */}
+          {/* Logout */}
           <Button
             variant="outline"
             className="w-full h-12"
-            onClick={onLogout}
+            onClick={handleLogout}
           >
             <LogOutIcon className="w-5 h-5 mr-2" />
             Log Out
