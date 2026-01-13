@@ -5,8 +5,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { BikeIcon, MapIcon } from 'lucide-react';
-import type { User } from "../types/user";
-
+import type { User } from '../types/user';
 
 type LoginProps = {
   onLogin: (user: User) => void;
@@ -48,13 +47,17 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo and Title */}
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-full mb-4">
             <BikeIcon className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-green-600 mb-2">Cycling Road Assistant</h1>
-          <p className="text-gray-600">Smart Route Planning · Real-time Road Monitoring</p>
+          <h1 className="text-green-600 mb-2 text-xl font-semibold">
+            Cycling Road Assistant
+          </h1>
+          <p className="text-gray-600">
+            Smart Route Planning · Real-time Road Monitoring
+          </p>
         </div>
 
         <Tabs defaultValue="login" className="w-full">
@@ -67,14 +70,15 @@ export default function Login({ onLogin }: LoginProps) {
             <Card>
               <CardHeader>
                 <CardTitle>Welcome Back</CardTitle>
-                <CardDescription>Login to record rides and contribute road conditions</CardDescription>
+                <CardDescription>
+                  Login to record rides and contribute road conditions
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label>Email</Label>
                     <Input
-                      id="email"
                       type="email"
                       placeholder="your@email.com"
                       value={email}
@@ -84,9 +88,8 @@ export default function Login({ onLogin }: LoginProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label>Password</Label>
                     <Input
-                      id="password"
                       type="password"
                       placeholder="••••••••"
                       value={password}
@@ -95,7 +98,7 @@ export default function Login({ onLogin }: LoginProps) {
                       className="h-12"
                     />
                   </div>
-                  <Button type="submit" className="w-full h-12 bg-green-600 hover:bg-green-700">
+                  <Button className="w-full h-12 bg-green-600 hover:bg-green-700 text-white">
                     Login
                   </Button>
                 </form>
@@ -107,16 +110,15 @@ export default function Login({ onLogin }: LoginProps) {
             <Card>
               <CardHeader>
                 <CardTitle>Create Account</CardTitle>
-                <CardDescription>Join us to improve cycling environment together</CardDescription>
+                <CardDescription>
+                  Join us to improve cycling environment together
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
+                    <Label>Name</Label>
                     <Input
-                      id="name"
-                      type="text"
-                      placeholder="John Doe"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
@@ -124,11 +126,9 @@ export default function Login({ onLogin }: LoginProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reg-email">Email</Label>
+                    <Label>Email</Label>
                     <Input
-                      id="reg-email"
                       type="email"
-                      placeholder="your@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -136,18 +136,16 @@ export default function Login({ onLogin }: LoginProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reg-password">Password</Label>
+                    <Label>Password</Label>
                     <Input
-                      id="reg-password"
                       type="password"
-                      placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       className="h-12"
                     />
                   </div>
-                  <Button type="submit" className="w-full h-12 bg-green-600 hover:bg-green-700">
+                  <Button className="w-full h-12 bg-green-600 hover:bg-green-700 text-white">
                     Register
                   </Button>
                 </form>
@@ -156,13 +154,8 @@ export default function Login({ onLogin }: LoginProps) {
           </TabsContent>
         </Tabs>
 
-        {/* Guest Access */}
         <div className="mt-6">
-          <Button
-            variant="outline"
-            className="w-full h-12"
-            onClick={handleGuestAccess}
-          >
+          <Button variant="outline" className="w-full h-12" onClick={handleGuestAccess}>
             <MapIcon className="w-5 h-5 mr-2" />
             Guest Mode (View Routes Only)
           </Button>
