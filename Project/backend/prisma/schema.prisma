@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  supabaseUid String   @unique
+  email       String   @unique
+  createdAt   DateTime @default(now())
+
+  trips       Trip[]
+  pathReports PathReport[]
+}
+
+model Trip {
+  id        String   @id @default(uuid())
+  userId    String
+  distance  Float
+  duration  Int
+  avgSpeed  Float
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PathReport {
+  id        String       @id @default(uuid())
+  userId    String
+  status    ReportStatus
+  createdAt DateTime     @default(now())
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum ReportStatus {
+  DRAFT
+  CONFIRMED
+  PUBLISHABLE
+}
