@@ -19,6 +19,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
   const [showLegend, setShowLegend] = useState(true);
 
 
+
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Top Bar */}

@@ -1,3 +1,4 @@
+import { supabase } from "../lib/supabase";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -14,56 +15,97 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [showVerifyTip, setShowVerifyTip] = useState(false);
 
-  // 简单邮箱校验
+  //auto jum if already logged in
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      console.log("🟢 getSession on load:", data.session);
+  
+      if (data.session) {
+        console.log("🟢 already logged in, user:", data.session.user);
+        navigate("/map");
+      }
+    });
+  }, []);
+  
+  
+  // email check
   const isValidEmail = (value: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     if (!email || !password) {
       alert("Please enter email and password");
       return;
     }
-
+  
     if (!isValidEmail(email)) {
       alert("Invalid email format");
       return;
     }
-
-    // ✅ mock 登录成功
-    console.log("Login success:", {
+  
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
+  
+    console.log("🔵 signInWithPassword raw data:", data);
+  
+    if (error) {
+      console.error("🔴 login error:", error);
+      alert(error.message);
+      return;
+    }
+  
+    console.log("✅ session:", data.session);
+    console.log("✅ access_token:", data.session?.access_token);
+    console.log("✅ user:", data.session?.user);
+  
     navigate("/map");
   };
+  
+  
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     if (!name || !email || !password) {
       alert("Please fill all fields");
       return;
     }
-
+  
     if (!isValidEmail(email)) {
       alert("Invalid email format");
       return;
     }
-
-    // ✅ mock 注册成功
-    console.log("Register success:", {
-      name,
+  
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          name,
+        },
+      },
     });
-
-    navigate("/map");
+  
+    if (error) {
+      alert(error.message);
+      return;
+    }
+  
+    console.log("🟣 signUp result:", data);
+  
+    // ✅ show alert: go to confirm email
+    setShowVerifyTip(true);
   };
+  
+  
+  
 
   const handleGuestAccess = () => {
     navigate("/map");
@@ -93,6 +135,7 @@ export default function Login() {
 
           {/* Login */}
           <TabsContent value="login">
+            
             <Card>
               <CardHeader>
                 <CardTitle>Welcome Back</CardTitle>
@@ -100,6 +143,8 @@ export default function Login() {
                   Login to record rides and contribute road conditions
                 </CardDescription>
               </CardHeader>
+
+
               <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
@@ -146,6 +191,17 @@ export default function Login() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+              {showVerifyTip && (
+                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  <strong>Verify your email</strong>
+                  <p className="mt-1">
+                    We’ve sent a verification email to your inbox.
+                    <br />
+                    Please verify your email before logging in.
+                  </p>
+                </div>
+              )}
+
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
