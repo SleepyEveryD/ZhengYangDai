@@ -12,15 +12,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,useLocation } from 'react-router-dom';
 import type { User } from "../types/user";
+import { saveRideLocal } from '../services/rideStorage';
+
 
 
 type RideRecordConfirmProps = {
-  ride: Ride | null;
   user: User;
   setUser: (user: User) => void;
 };
+
 
 type RoadConditionSegment = {
   id: string;
@@ -30,13 +32,25 @@ type RoadConditionSegment = {
   pathCoordinates: [number, number][];
 };
 
-export default function RideRecordConfirm({ ride, user, setUser }: RideRecordConfirmProps) {
+export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const ride: Ride | null = location.state?.ride ?? null;
+
+  if (!ride) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Ride record not found</p>
+      </div>
+    );
+  }
+
   const [issues, setIssues] = useState(ride?.issues || []);
   const [showUnconfirmedWarning, setShowUnconfirmedWarning] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportTab, setReportTab] = useState<'issues' | 'conditions'>('issues');
   const [roadConditionSegments, setRoadConditionSegments] = useState<RoadConditionSegment[]>([]);
+
   
   // New issue reporting state
   const [isAddingIssue, setIsAddingIssue] = useState(false);
@@ -122,61 +136,60 @@ export default function RideRecordConfirm({ ride, user, setUser }: RideRecordCon
   };
 
   const handleSaveOnly = () => {
-    if (issues.some((issue) => issue.status === 'pending')) {
-      setShowUnconfirmedWarning(true);
+    if (issues.some(issue => issue.status === 'pending')) {
       toast.error('Please confirm or ignore all pending issues');
       return;
     }
-
     if (roadConditionSegments.length === 0) {
-      toast.error('Please add at least one road condition segment before saving');
+      toast.error('Please add at least one road condition segment');
       setShowReportDialog(true);
       setReportTab('conditions');
       return;
     }
-
-    // Update user stats
-    if (user) {
-      setUser({
-        ...user,
-        totalDistance: user.totalDistance + ride.distance,
-        totalRides: user.totalRides + 1,
-      });
-    }
-
-    toast.success('Ride data saved');
+    
+    const finalRide = {
+      ...ride,
+      issues,
+      uploadStatus: 'pending', // 👈 关键
+      confirmedAt: new Date().toISOString(),
+    };
+  
+    saveRideLocal(finalRide);
+  
+    toast.success('Ride saved locally');
     navigate('/map');
   };
+  
 
   const handleSaveAndPublish = () => {
-    if (issues.some((issue) => issue.status === 'pending')) {
-      setShowUnconfirmedWarning(true);
+    if (issues.some(issue => issue.status === 'pending')) {
       toast.error('Please confirm or ignore all pending issues');
       return;
     }
-
     if (roadConditionSegments.length === 0) {
       toast.error('Please add at least one road condition segment before publishing');
       setShowReportDialog(true);
       setReportTab('conditions');
       return;
     }
-
-    const confirmedIssues = issues.filter((issue) => issue.status === 'confirmed');
-
-    // Update user stats
-    if (user) {
-      setUser({
-        ...user,
-        totalDistance: user.totalDistance + ride.distance,
-        totalRides: user.totalRides + 1,
-        totalReports: user.totalReports + confirmedIssues.length,
-      });
-    }
-
-    toast.success(`Published ride data and ${confirmedIssues.length} road reports`);
+    
+  
+    const confirmedIssues = issues.filter(i => i.status === 'confirmed');
+  
+    const finalRide = {
+      ...ride,
+      issues,
+      uploadStatus: 'pending',
+      publish: true,
+      confirmedAt: new Date().toISOString(),
+    };
+  
+    saveRideLocal(finalRide);
+  
+    toast.success(`Saved & queued ${confirmedIssues.length} reports`);
     navigate('/map');
   };
+  
 
   const pendingIssues = issues.filter((issue) => issue.status === 'pending');
   const confirmedIssues = issues.filter((issue) => issue.status === 'confirmed');
@@ -360,7 +373,7 @@ export default function RideRecordConfirm({ ride, user, setUser }: RideRecordCon
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigateTo('map')}
+          onClick={() => navigate('/map')}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
