@@ -8,7 +8,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private pool: Pool;
 
   constructor() {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     // 用 DATABASE_URL 建立 pg 连接池
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
