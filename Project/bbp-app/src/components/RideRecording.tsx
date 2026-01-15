@@ -96,6 +96,7 @@ export default function RideRecording() {
       maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
       path,
       issues: detectedIssues,
+      uploadStatus: 'draft'
     };
 
     navigate("/ride/confirm", {
