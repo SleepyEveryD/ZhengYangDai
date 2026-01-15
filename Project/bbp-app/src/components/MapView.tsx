@@ -1,7 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/* ---------- Types ---------- */
+type Path = {
+  id: string;
+  coordinates: number[][];
+  condition: string;
+};
 
 type MapViewProps = {
   currentLocation?: [number, number];
+  paths: Path[];
 };
 
 declare global {
@@ -10,7 +18,7 @@ declare global {
   }
 }
 
-/* ---------- Google Maps Loader（只加载一次） ---------- */
+/* ---------- Google Maps Loader ---------- */
 let googleMapsPromise: Promise<void> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<void> {
@@ -30,106 +38,93 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
   return googleMapsPromise;
 }
 
-export default function MapView({ currentLocation }: MapViewProps) {
+/* ---------- Utils ---------- */
+function getPathColor(condition: string) {
+  switch (condition) {
+    case "good":
+      return "#22c55e";
+    case "fair":
+      return "#f59e0b";
+    case "poor":
+      return "#ef4444";
+    default:
+      return "#3b82f6";
+  }
+}
+
+/* ---------- Component ---------- */
+export default function MapView({ currentLocation, paths }: MapViewProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const overlayRef = useRef<any>(null);
+  const polylineMapRef = useRef<Map<string, any>>(new Map());
 
-  /* ---------- Init Map (只执行一次) ---------- */
+  const [mapReady, setMapReady] = useState(false);
+
+  /* ---------- Init Map ---------- */
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     if (!apiKey || !mapDivRef.current) return;
 
-    let isMounted = true;
+    let mounted = true;
 
     (async () => {
       await loadGoogleMaps(apiKey);
-      if (!isMounted) return;
-
-      const google = window.google;
+      if (!mounted) return;
 
       if (!mapRef.current) {
-        mapRef.current = new google.maps.Map(mapDivRef.current, {
-          center: { lat: 39.9042, lng: 116.4074 },
-          zoom: 15,
+        mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+          center: { lat: 45.4642, lng: 9.19 }, // Milan
+          zoom: 13,
           disableDefaultUI: true,
           gestureHandling: "greedy",
         });
-      }
 
-      /* ---------- OverlayView ---------- */
-      class LocationOverlay extends google.maps.OverlayView {
-        div: HTMLDivElement | null = null;
-
-        onAdd() {
-          this.div = document.createElement("div");
-          this.div.style.position = "absolute";
-          this.getPanes().overlayLayer.appendChild(this.div);
-        }
-
-        draw() {
-          if (!this.div || !currentLocation) return;
-          const projection = this.getProjection();
-          if (!projection) return;
-
-          const point = projection.fromLatLngToDivPixel(
-            new google.maps.LatLng(currentLocation[0], currentLocation[1])
-          );
-
-          this.div.style.left = `${point.x - 150}px`;
-          this.div.style.top = `${point.y - 150}px`;
-          this.div.style.width = "300px";
-          this.div.style.height = "300px";
-          this.div.innerHTML = `
-            <svg width="300" height="300">
-              <circle cx="150" cy="150" r="15" fill="#3b82f6" opacity="0.3">
-                <animate attributeName="r" from="15" to="30" dur="1.5s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" from="0.3" to="0" dur="1.5s" repeatCount="indefinite"/>
-              </circle>
-              <circle cx="150" cy="150" r="8" fill="#3b82f6" stroke="white" stroke-width="3"/>
-            </svg>
-          `;
-        }
-
-        onRemove() {
-          if (this.div) this.div.remove();
-          this.div = null;
-        }
-      }
-
-      if (!overlayRef.current) {
-        overlayRef.current = new LocationOverlay();
-        overlayRef.current.setMap(mapRef.current);
+        setMapReady(true);
       }
     })();
 
-    /* ---------- cleanup（关键） ---------- */
     return () => {
-      isMounted = false;
-
-      if (overlayRef.current) {
-        overlayRef.current.setMap(null);
-        overlayRef.current = null;
-      }
-
-      // ⚠️ 不销毁 mapRef.current
-      // Google Maps 实例必须复用，否则会白屏
+      mounted = false;
     };
   }, []);
 
-  /* ---------- Update location ---------- */
+  /* ---------- Center on current location ---------- */
   useEffect(() => {
-    if (!mapRef.current || !currentLocation) return;
+    if (!mapReady || !mapRef.current || !currentLocation) return;
 
     mapRef.current.setCenter({
       lat: currentLocation[0],
       lng: currentLocation[1],
     });
+  }, [currentLocation, mapReady]);
 
-    if (overlayRef.current) {
-      overlayRef.current.draw();
-    }
-  }, [currentLocation]);
+  /* ---------- ✅ Render paths（关键修复） ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    if (!paths || paths.length === 0) return;
+
+    const google = window.google;
+    const polylineMap = polylineMapRef.current;
+
+    // 清空旧路线
+    polylineMap.forEach((line) => line.setMap(null));
+    polylineMap.clear();
+
+    // 重新画所有路线
+    paths.forEach((path) => {
+      console.log("Drawing polyline:", path.id, path.coordinates.length);
+
+      const polyline = new google.maps.Polyline({
+        path: path.coordinates.map(([lat, lng]) => ({ lat, lng })),
+        strokeColor: getPathColor(path.condition),
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        map: mapRef.current,
+      });
+
+      polylineMap.set(path.id, polyline);
+    });
+  }, [paths, mapReady]);
 
   return (
     <div className="w-full h-full relative">

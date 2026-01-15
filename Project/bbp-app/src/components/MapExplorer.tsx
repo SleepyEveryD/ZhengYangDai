@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
@@ -20,10 +20,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
   const navigate = useNavigate();
   const [showLegend, setShowLegend] = useState(true);
 
-  // ✅ Day1：定位结果（[lat, lng]）
-  const [currentLocation, setCurrentLocation] = useState<
-    [number, number] | undefined
-  >(undefined);
+  const [currentLocation, setCurrentLocation] =
+    useState<[number, number] | undefined>(undefined);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -32,9 +30,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
       (pos) => {
         setCurrentLocation([pos.coords.latitude, pos.coords.longitude]);
       },
-      () => {
-        // 定位失败：不阻塞页面（MapView 会用 fallbackCenter）
-      },
+      () => {},
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
@@ -46,10 +42,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
       {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
         <div className="flex items-center gap-3">
-          {/* Search Bar */}
           <div
             className="flex-1 bg-white rounded-full shadow-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow"
-            // ✅ 修正：你的路由是 /path/planning
             onClick={() => navigate("/path/planning")}
           >
             <SearchIcon className="w-5 h-5 text-gray-400" />
@@ -58,11 +52,9 @@ export default function MapExplorer({ user }: MapExplorerProps) {
             </span>
           </div>
 
-          {/* User Avatar or Login Button */}
           {user ? (
             <div
               className="bg-white rounded-full shadow-lg p-2 cursor-pointer hover:shadow-xl transition-shadow"
-              // ✅ 修正：跳 profile 用绝对路径最稳
               onClick={() => navigate("/profile")}
             >
               <Avatar className="w-8 h-8">
@@ -85,49 +77,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
 
       {/* Map */}
       <div className="flex-1 relative">
-        <MapView
-          currentLocation={currentLocation}
-          paths={[
-            {
-              id: "1",
-              coordinates: [
-                [39.9042, 116.4074],
-                [39.9142, 116.4174],
-                [39.9242, 116.4274],
-              ],
-              condition: "excellent",
-            },
-            {
-              id: "2",
-              coordinates: [
-                [39.9042, 116.4074],
-                [39.9042, 116.4274],
-                [39.9242, 116.4274],
-              ],
-              condition: "good",
-            },
-            {
-              id: "3",
-              coordinates: [
-                [39.8942, 116.4174],
-                [39.9042, 116.4174],
-                [39.9142, 116.4174],
-              ],
-              condition: "fair",
-            },
-            {
-              id: "4",
-              coordinates: [
-                [39.8842, 116.4074],
-                [39.8942, 116.4174],
-                [39.9042, 116.4274],
-              ],
-              condition: "poor",
-            },
-          ]}
-        />
+        <MapView currentLocation={currentLocation} paths={[]} />
 
-        {/* Legend */}
         {showLegend && (
           <div className="absolute top-24 right-4 bg-white rounded-lg shadow-lg p-4 space-y-2">
             <div className="flex items-center justify-between mb-2">
@@ -166,7 +117,6 @@ export default function MapExplorer({ user }: MapExplorerProps) {
         <div className="flex gap-3 pointer-events-auto">
           <Button
             className="flex-1 h-14 bg-white text-gray-900 hover:bg-gray-50 shadow-lg"
-            // ✅ 修正：你的路由是 /path/planning
             onClick={() => navigate("/path/planning")}
           >
             <NavigationIcon className="w-5 h-5 mr-2" />
@@ -176,7 +126,6 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           {user && (
             <Button
               className="flex-1 h-14 bg-green-600 hover:bg-green-700 shadow-lg"
-              // ✅ 修正：你的路由是 /ride/prepare
               onClick={() => navigate("/ride/prepare")}
             >
               <CircleDotIcon className="w-5 h-5 mr-2" />
@@ -186,23 +135,17 @@ export default function MapExplorer({ user }: MapExplorerProps) {
         </div>
       </div>
 
-      {/* Guest Notice */}
       {!user && (
         <div className="absolute top-20 left-4 right-4 bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-lg">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-blue-900 mb-2">
-                <strong>Guest Mode</strong>
-              </p>
-              <p className="text-blue-800">
-                You can view route planning, but cannot record rides or report
-                road conditions.
-              </p>
-            </div>
-          </div>
+          <p className="text-blue-900 mb-2">
+            <strong>Guest Mode</strong>
+          </p>
+          <p className="text-blue-800">
+            You can view route planning, but cannot record rides or report road
+            conditions.
+          </p>
           <Button
             className="w-full mt-3 h-10 bg-blue-600 hover:bg-blue-700 text-white"
-            // ✅ 修正：navigateTo 不存在
             onClick={() => navigate("/login")}
           >
             <LogInIcon className="w-4 h-4 mr-2" />
