@@ -24,25 +24,59 @@ model Trip {
   avgSpeed  Float
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model PathReport {
-  id        String       @id @default(uuid())
-  userId    String
-  status    ReportStatus
-  createdAt DateTime     @default(now())
-
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
 }
 
 enum ReportStatus {
   DRAFT
   CONFIRMED
   PUBLISHABLE
+}
+
+enum ConditionLevel {
+  OPTIMAL
+  MEDIUM
+  SUFFICIENT
+  MAINTENANCE
+}
+
+model PathSegment {
+  id         String   @id @default(uuid())
+  streetName String
+  geometry   Json?
+  createdAt  DateTime @default(now())
+
+  reports PathReport[]
+  merged  MergedSegment?
+}
+
+model PathReport {
+  id        String         @id @default(uuid())
+  userId    String
+  segmentId String
+  status    ReportStatus   @default(DRAFT)
+  condition ConditionLevel
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  segment PathSegment @relation(fields: [segmentId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([segmentId, status, createdAt])
+}
+
+model MergedSegment {
+  id              String         @id @default(uuid())
+  segmentId       String         @unique
+  mergedCondition ConditionLevel
+  confidence      Float
+  reportCount     Int
+  latestReportAt  DateTime
+  updatedAt       DateTime       @updatedAt
+
+  segment PathSegment @relation(fields: [segmentId], references: [id])
 }
