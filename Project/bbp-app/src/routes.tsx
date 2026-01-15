@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./components/Login";
 import MapExplorer from "./components/MapExplorer";
+import MapPage from "./components/MapPage"
 import PathPlanning from "./components/PathPlanning";
 import PathResults from "./components/PathResults";
 import PathDetail from "./components/PathDetail";
@@ -20,7 +21,7 @@ export function AppRoutes() {
       <Route path="/" element={<Navigate to="/login" />} />
 
       <Route path="/login" element={<Login />} />
-      <Route path="/map" element={<MapExplorer />} />
+      <Route path="/map" element={<MapPage />} />
 
       <Route path="/path/planning" element={<PathPlanning />} />
       <Route path="/path/results" element={<PathResults />} />
