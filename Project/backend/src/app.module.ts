@@ -8,13 +8,14 @@ import { AuthModule } from './auth/auth.module';
 import { TestModule } from './debug/debug.module';
 
 @Module({
-  imports: [PrismaModule, PathReportModule],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    PrismaModule,
     AuthModule,
-    TestModule, //test route
+    PathReportModule,
+    TestModule, // test route
   ],
   controllers: [AppController],
   providers: [AppService],
