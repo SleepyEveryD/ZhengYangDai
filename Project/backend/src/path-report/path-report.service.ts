@@ -9,6 +9,7 @@ export class PathReportService {
   // 新：从 supabaseUid(JWT sub) 创建 Draft
   async createDraftBySupabaseUid(
     supabaseUid: string,
+    email: string | undefined,
     dto: { segmentId: string; condition: string; notes?: string },
   ) {
     if (!supabaseUid) throw new UnauthorizedException('Missing user token');
@@ -21,8 +22,7 @@ export class PathReportService {
       user = await this.prisma.user.create({
         data: {
           supabaseUid,
-          // 先给一个占位 email，等你们 auth 完整同步后可删掉这段
-          email: `${supabaseUid}@placeholder.local`,
+          email: email ?? `${supabaseUid}@placeholder.local`,
         },
       });
     }

@@ -54,7 +54,8 @@ model PathSegment {
 
 model PathReport {
   id        String         @id @default(uuid())
-  userId    String
+  userId    String?
+  anonId    String?        //匿名用户/会话ID（比如 cookie/session）
   segmentId String
   status    ReportStatus   @default(DRAFT)
   condition ConditionLevel
@@ -66,6 +67,7 @@ model PathReport {
   user    User        @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([anonId])
   @@index([segmentId, status, createdAt])
 }
 
