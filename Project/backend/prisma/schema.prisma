@@ -1,199 +1,101 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
 }
 
-model aggregated_segments {
-  segment_id    String        @id @db.Uuid
-  avg_condition Float
-  confidence    Float
-  last_updated  DateTime?     @default(now()) @db.Timestamp(6)
-  path_segments path_segments @relation(fields: [segment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+generator client {
+  provider = "prisma-client-js"
 }
 
-model issues {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  trip_id       String?        @db.Uuid
-  type          issue_type
-  lat           Float
-  lng           Float
-  severity      issue_severity
-  status        issue_status   @default(pending)
-  description   String?
-  auto_detected Boolean?       @default(false)
-  created_at    DateTime?      @default(now()) @db.Timestamp(6)
-  trips         trips?         @relation(fields: [trip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+enum RideStatus {
+  DRAFT
+  CONFIRMED
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model path_reports {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id       String?        @db.Uuid
-  segment_id    String?        @db.Uuid
-  condition     Int?
-  notes         String?
-  source        report_source
-  status        report_status  @default(draft)
-  created_at    DateTime?      @default(now()) @db.Timestamp(6)
-  updated_at    DateTime?      @default(now()) @db.Timestamp(6)
-  path_segments path_segments? @relation(fields: [segment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users         users?         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([segment_id], map: "idx_report_segment")
-  @@index([status], map: "idx_report_status")
+enum RoadCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  NEED_REPAIR
 }
 
-model path_scores {
-  path_id          String    @id @db.Uuid
-  quality_score    Float?
-  efficiency_score Float?
-  final_score      Float?
-  confidence       Float?
-  computed_at      DateTime? @default(now()) @db.Timestamp(6)
-  paths            paths     @relation(fields: [path_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+enum IssueType {
+  NONE
+  POTHOLE
+  BUMP
+  GRAVEL
+  CONSTRUCTION
+  OTHER
 }
+model Ride {
+  id               String      @id @default(uuid())
+  userId           String
 
-model path_segment_map {
-  path_id       String        @db.Uuid
-  segment_id    String        @db.Uuid
-  order_index   Int
-  paths         paths         @relation(fields: [path_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  path_segments path_segments @relation(fields: [segment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  routeGeometry    Unsupported("geography(LineString, 4326)")
 
-  @@id([path_id, segment_id])
+  totalDistanceM   Float
+  totalDurationS   Int
+  avgSpeedKmh      Float
+  maxSpeedKmh      Float
+
+  status           RideStatus  @default(DRAFT)
+
+  startedAt        DateTime
+  endedAt          DateTime
+  createdAt        DateTime    @default(now())
+
+  // relations
+  segments         RideSegment[]
+
+  @@index([userId])
 }
+model RideSegment {
+  id           String   @id @default(uuid())
+  rideId       String
+  orderIndex   Int
 
-model path_segments {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  start_lat           Float
-  start_lng           Float
-  end_lat             Float
-  end_lng             Float
-  geometry            String?
-  created_at          DateTime?            @default(now()) @db.Timestamp(6)
-  aggregated_segments aggregated_segments?
-  path_reports        path_reports[]
-  path_segment_map    path_segment_map[]
+  geometry     Unsupported("geography(LineString, 4326)")
+  lengthM      Float
+
+  createdAt   DateTime @default(now())
+
+  // relations
+  ride         Ride    @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  report       RideSegmentReport?
+
+  @@index([rideId])
+  @@unique([rideId, orderIndex])
 }
+model RideSegmentReport {
+  id              String        @id @default(uuid())
+  rideSegmentId   String        @unique
 
-model paths {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  total_length     Float?
-  name             String?
-  path_scores      path_scores?
-  path_segment_map path_segment_map[]
-  route_comments   route_comments[]
+  roadCondition   RoadCondition
+  issueType       IssueType     @default(NONE)
+  notes           String?
+
+  createdAt       DateTime      @default(now())
+
+  // relations
+  rideSegment     RideSegment   @relation(fields: [rideSegmentId], references: [id], onDelete: Cascade)
 }
+model PathSegment {
+  id           String   @id @default(uuid())
+  geometry     Unsupported("geography(LineString, 4326)")
+  lengthM      Float
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model route_comments {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  path_id    String?   @db.Uuid
-  user_id    String?   @db.Uuid
-  content    String
-  rating     Int?
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  paths      paths?    @relation(fields: [path_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+
+  // relations
+  aggregated   AggregatedSegment?
 }
+model AggregatedSegment {
+  segmentId       String   @id
+  finalCondition  RoadCondition
+  agreementScore  Float
+  obstacleSummary Json?
 
-model trip_gps_points {
-  id          BigInt   @id @default(autoincrement())
-  trip_id     String?  @db.Uuid
-  lat         Float
-  lng         Float
-  recorded_at DateTime @db.Timestamp(6)
-  trips       trips?   @relation(fields: [trip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  lastUpdatedAt   DateTime @updatedAt
 
-  @@index([trip_id], map: "idx_gps_trip")
-}
-
-model trip_points {
-  id          BigInt   @id @default(autoincrement())
-  trip_id     String   @db.Uuid
-  latitude    Decimal  @db.Decimal
-  longitude   Decimal  @db.Decimal
-  recorded_at DateTime @db.Timestamptz(6)
-  trips       trips    @relation(fields: [trip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model trip_weather {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  trip_id      String?   @db.Uuid
-  temperature  Float?
-  condition    String?
-  retrieved_at DateTime? @default(now()) @db.Timestamp(6)
-  trips        trips?    @relation(fields: [trip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model trips {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id          String            @db.Uuid
-  start_time       DateTime          @db.Timestamptz(6)
-  end_time         DateTime?         @db.Timestamptz(6)
-  distance_km      Decimal?          @db.Decimal
-  duration_seconds Int?
-  average_speed    Decimal?          @db.Decimal
-  status           String
-  created_at       DateTime?         @default(now()) @db.Timestamptz(6)
-  max_speed        Float?
-  issues           issues[]
-  trip_gps_points  trip_gps_points[]
-  trip_points      trip_points[]
-  trip_weather     trip_weather[]
-  users            users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_trips_user")
-}
-
-model users {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email          String           @unique
-  username       String
-  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
-  avatar         String?
-  total_distance Float?           @default(0)
-  total_rides    Int?             @default(0)
-  total_reports  Int?             @default(0)
-  path_reports   path_reports[]
-  route_comments route_comments[]
-  trips          trips[]
-}
-
-enum issue_severity {
-  low
-  medium
-  high
-}
-
-enum issue_status {
-  pending
-  confirmed
-  fixed
-}
-
-enum issue_type {
-  pothole
-  crack
-  obstacle
-  other
-}
-
-enum report_source {
-  manual
-  automatic
-}
-
-enum report_status {
-  draft
-  confirmed
-  publishable
-}
-
-enum trip_status {
-  recording
-  completed
+  // relations
+  segment         PathSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
 }
