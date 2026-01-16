@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from "react";
 
+export type Path = {
+  id: string;
+  coordinates: number[][];
+  condition: string;
+};
+
 type MapViewProps = {
   currentLocation?: [number, number];
+  paths: Path[];
 };
 
 declare global {

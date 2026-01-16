@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PathReportModule } from './path-report/path-report.module';
 import { AuthModule } from './auth/auth.module';
 import { TestModule } from './debug/debug.module';
+import { TripsModule } from "./trips/trips.module";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { TestModule } from './debug/debug.module';
       isGlobal: true,
     }),
     PrismaModule,
+    TripsModule,
     AuthModule,
     PathReportModule,
     TestModule, // test route
@@ -21,3 +23,4 @@ import { TestModule } from './debug/debug.module';
   providers: [AppService],
 })
 export class AppModule {}
+

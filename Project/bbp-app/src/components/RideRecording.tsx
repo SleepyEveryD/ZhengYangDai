@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
@@ -12,8 +12,16 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
 
+// ✅ 你已有的 API 文件：src/api/trips.ts
+import { startTrip, stopTrip } from "../api/trips";
+// ✅ 你已有 AuthProvider，配合这个 hook：src/auth/useAuth.ts
+import { useAuth } from "../auth/useAuth";
+
 export default function RideRecording() {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  const [tripId, setTripId] = useState<string | null>(null);
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -23,43 +31,83 @@ export default function RideRecording() {
   const [showIssueAlert, setShowIssueAlert] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
+  // 防止弹窗开着时还不断触发新 issue（避免覆盖 currentIssue + toast 轰炸）
+  const showIssueAlertRef = useRef(false);
   useEffect(() => {
-    const timer = setInterval(() => {
-      setDuration((prev) => prev + 1);
-      setDistance((prev) => prev + 0.01);
-      setSpeed(Math.random() * 15 + 10);
+    showIssueAlertRef.current = showIssueAlert;
+  }, [showIssueAlert]);
 
-      setPath((prev) => [
-        ...prev,
-        [39.9042 + Math.random() * 0.01, 116.4074 + Math.random() * 0.01],
-      ]);
+  // ✅ MapView 首帧不崩溃：path 为空给 fallback
+  const currentLocation = useMemo<[number, number]>(() => {
+    return path.length ? path[path.length - 1] : [39.9042, 116.4074];
+  }, [path]);
 
-      if (Math.random() < 0.05) {
-        const newIssue: Issue = {
-          id: `issue-${Date.now()}`,
-          type: "pothole",
-          location: [
-            39.9042 + Math.random() * 0.01,
-            116.4074 + Math.random() * 0.01,
-          ],
-          severity: "medium",
-          status: "pending",
-          date: new Date().toISOString(),
-          autoDetected: true,
-        };
+  // ✅ 进入页面： noticing
+  useEffect(() => {
+    if (loading) return;
+    if (!user) return;
 
-        setCurrentIssue(newIssue);
-        setShowIssueAlert(true);
+    let timer: number | null = null;
+    let cancelled = false;
 
-        toast.warning("Road issue detected", {
-          description: "Please confirm to report this issue",
-          duration: 3000,
-        });
+    (async () => {
+      try {
+        // 1) Start Trip（写入 Supabase）
+        const trip = await startTrip(user.id);
+        if (cancelled) return;
+
+        setTripId(trip.id);
+        toast.success("Trip started");
+
+        // 2) 录制本地 demo 数据（你后续换成真实 GPS/传感器即可）
+        timer = window.setInterval(() => {
+          setDuration((prev) => prev + 1);
+          setDistance((prev) => prev + 0.01);
+          setSpeed(Math.random() * 15 + 10);
+
+          // path 加上限，避免越跑越卡
+          setPath((prev) => {
+            const next = [
+              ...prev,
+              [39.9042 + Math.random() * 0.01, 116.4074 + Math.random() * 0.01] as [number, number],
+            ];
+            return next.length > 2000 ? next.slice(-2000) : next;
+          });
+
+          // issue demo：弹窗开着就不再触发新的
+          if (!showIssueAlertRef.current && Math.random() < 0.05) {
+            const newIssue: Issue = {
+              id: `issue-${Date.now()}`,
+              type: "pothole",
+              location: [
+                39.9042 + Math.random() * 0.01,
+                116.4074 + Math.random() * 0.01,
+              ],
+              severity: "medium",
+              status: "pending",
+              date: new Date().toISOString(),
+              autoDetected: true,
+            };
+
+            setCurrentIssue(newIssue);
+            setShowIssueAlert(true);
+
+            toast.warning("Road issue detected", {
+              description: "Please confirm to report this issue",
+              duration: 3000,
+            });
+          }
+        }, 1000);
+      } catch (e: any) {
+        toast.error("Failed to start trip");
       }
-    }, 1000);
+    })();
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearInterval(timer);
+    };
+  }, [loading, user]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -86,23 +134,37 @@ export default function RideRecording() {
     setCurrentIssue(null);
   };
 
-  const handleStop = () => {
-    const ride = {
-      id: `ride-${Date.now()}`,
-      date: new Date().toISOString(),
-      distance: parseFloat(distance.toFixed(2)),
-      duration,
-      avgSpeed: parseFloat((distance / (duration / 3600)).toFixed(1)),
-      maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
-      path,
-      issues: detectedIssues,
-      uploadStatus: 'draft'
-    };
+  // ✅ Stop：调用后端 stopTrip，然后去 history（Day3 验收点）
+  const handleStop = async () => {
+    if (!tripId) {
+      toast.error("Trip not started yet");
+      return;
+    }
 
-    navigate("/ride/confirm", {
-      state: { ride },
-    });
+    try {
+      await stopTrip(tripId, parseFloat(distance.toFixed(2)), duration);
+      toast.success("Trip stopped & saved");
+      navigate("/trips/history");
+    } catch (e: any) {
+      toast.error("Failed to stop trip");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Please login first</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
@@ -110,7 +172,7 @@ export default function RideRecording() {
       <div className="flex-1 relative">
         <MapView
           userPath={path}
-          currentLocation={path[path.length - 1]}
+          currentLocation={currentLocation}
           issues={detectedIssues.map((issue) => ({
             location: issue.location,
             type: issue.type,
@@ -130,17 +192,18 @@ export default function RideRecording() {
             <p className="text-gray-600">Duration</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">
-              {distance.toFixed(2)} km
-            </p>
+            <p className="text-gray-900 mb-1">{distance.toFixed(2)} km</p>
             <p className="text-gray-600">Distance</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">
-              {speed.toFixed(1)} km/h
-            </p>
+            <p className="text-gray-900 mb-1">{speed.toFixed(1)} km/h</p>
             <p className="text-gray-600">Speed</p>
           </div>
+        </div>
+
+        {/* debug: tripId */}
+        <div className="mt-2 text-xs text-gray-500 text-center">
+          TripId: {tripId ?? "starting..."}
         </div>
       </motion.div>
 
@@ -197,6 +260,7 @@ export default function RideRecording() {
         <Button
           className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
           onClick={handleStop}
+          disabled={!tripId}
         >
           <StopCircleIcon className="w-10 h-10" />
         </Button>

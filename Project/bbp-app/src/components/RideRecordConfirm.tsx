@@ -594,14 +594,14 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
           onClick={handleSaveOnly}
         >
           <SaveIcon className="w-5 h-5 mr-2" />
-          Save to Personal Record Only
+          Save as Draft
         </Button>
         <Button
           className="w-full h-12 bg-green-600 hover:bg-green-700"
           onClick={handleSaveAndPublish}
         >
           <ShareIcon className="w-5 h-5 mr-2" />
-          Save and Publish to Community
+          Save and Publish
           {confirmedIssues.length > 0 && ` (${confirmedIssues.length} reports)`}
         </Button>
       </div>
