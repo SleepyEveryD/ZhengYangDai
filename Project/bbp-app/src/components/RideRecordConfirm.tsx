@@ -45,6 +45,8 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
     );
   }
 
+  const [mapMode, setMapMode] = useState<"none" | "issue" | "segment">("none");
+
   const [issues, setIssues] = useState(ride?.issues || []);
   const [showUnconfirmedWarning, setShowUnconfirmedWarning] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -594,14 +596,14 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
           onClick={handleSaveOnly}
         >
           <SaveIcon className="w-5 h-5 mr-2" />
-          Save as Draft
+          Save to Personal Record Only
         </Button>
         <Button
           className="w-full h-12 bg-green-600 hover:bg-green-700"
           onClick={handleSaveAndPublish}
         >
           <ShareIcon className="w-5 h-5 mr-2" />
-          Save and Publish
+          Save and Publish to Community
           {confirmedIssues.length > 0 && ` (${confirmedIssues.length} reports)`}
         </Button>
       </div>

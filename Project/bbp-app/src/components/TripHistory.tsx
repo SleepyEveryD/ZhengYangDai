@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+/*import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getTripHistory, type Trip } from "../api/trips";
 import { useAuth } from "../auth/useAuth";
@@ -62,7 +62,7 @@ export default function TripHistoryPage() {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      {/* Header */}
+      {/* Header *//*}
       <div className="flex items-center gap-3 p-4 border-b bg-white">
         <Button
           variant="ghost"
@@ -123,7 +123,7 @@ export default function TripHistoryPage() {
                   </div>
                 </div>
 
-                {/* debug: id */}
+                {/* debug: id *//*}
                 <p className="text-xs text-gray-400 mt-2 break-all">
                   {t.id}
                 </p>
@@ -134,3 +134,4 @@ export default function TripHistoryPage() {
     </div>
   );
 }
+*/

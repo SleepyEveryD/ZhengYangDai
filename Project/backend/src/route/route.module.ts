@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+/*import { Module } from '@nestjs/common';
 import { RouteController } from './route.controller';
 import { RouteService } from './route.service';
 
@@ -6,4 +6,4 @@ import { RouteService } from './route.service';
   controllers: [RouteController],
   providers: [RouteService],
 })
-export class RouteModule {}
+export class RouteModule {}*/

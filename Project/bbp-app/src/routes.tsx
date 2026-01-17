@@ -13,7 +13,8 @@ import Profile from "./components/Profile";
 import RideHistory from "./components/RideHistory";
 import RideDetail from "./components/RideDetail";
 import ReportHistory from "./components/ReportHistory";
-import TripHistory from "./components/TripHistory";
+//import TripHistory from "./components/TripHistory";
+//import TripSavePage from "./components/TripSave";
 
 export function AppRoutes() {
   return (
@@ -31,9 +32,7 @@ export function AppRoutes() {
       <Route path="/ride/prepare" element={<RideRecordPrepare />} />
       <Route path="/ride/recording" element={<RideRecording />} />
       <Route path="/ride/confirm" element={<RideRecordConfirm />} />
-      <Route path="/trips/history" element={<TripHistory />} />
-
-
+      
       <Route path="/profile" element={<Profile />} />
 
       <Route path="/rides" element={<RideHistory />} />

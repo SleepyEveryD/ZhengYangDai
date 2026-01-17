@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+/*import { Body, Controller, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { PathReportService } from './path-report.service';
 import { CreateDraftDto } from './dto/create-draft.dto';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
@@ -40,3 +40,4 @@ export class PathReportController {
     return this.service.publish(id);
   }
 }
+*/

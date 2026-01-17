@@ -1,4 +1,4 @@
-import { http } from "./http";
+/*import { http } from "./http";
 
 export type Trip = {
   id: string;
@@ -10,13 +10,16 @@ export type Trip = {
   durationSec?: number | null;
 };
 
-export async function startTrip(userId: string) {
-  const res = await http.post<{ trip: Trip }>("/trips/start", { userId });
-  return res.data.trip;
-}
+export type CreateTripInput = {
+  userId: string;
+  startedAt: string;
+  stoppedAt: string;
+  distanceKm: number;
+  durationSec: number;
+};
 
-export async function stopTrip(tripId: string, distanceKm: number, durationSec: number) {
-  const res = await http.post<{ trip: Trip }>("/trips/stop", { tripId, distanceKm, durationSec });
+export async function createTrip(input: CreateTripInput) {
+  const res = await http.post<{ trip: Trip }>("/trips", input);
   return res.data.trip;
 }
 
@@ -24,3 +27,4 @@ export async function getTripHistory(userId: string) {
   const res = await http.get<{ trips: Trip[] }>("/trips/history", { params: { userId } });
   return res.data.trips;
 }
+*/
