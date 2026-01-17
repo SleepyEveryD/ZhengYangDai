@@ -222,6 +222,7 @@ useEffect(() => {
     const finalRide = {
       ...ride,
       issues,
+      roadConditionSegments,
       uploadStatus: 'pending', // 👈 关键
       confirmedAt: new Date().toISOString(),
     };

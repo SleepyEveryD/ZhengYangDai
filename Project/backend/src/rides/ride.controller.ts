@@ -1,9 +1,11 @@
+//Project/backend/src/rides/ride.controller.ts
 import {
     Body,
     Controller,
     Param,
     Put,
     Req,
+    Post,
     UseGuards,
   } from '@nestjs/common';
   import { RideService } from './ride.service';
@@ -32,5 +34,18 @@ import {
         dto,
       );
     }
+
+
+    @UseGuards(SupabaseAuthGuard)
+    @Post(':rideId/confirm')
+    async confirmRide(
+      @Param('rideId') rideId: string,
+      @Body() body: { publish: boolean },
+      @Req() req: any,
+    ) {
+      const userId = req.user.userId;
+      return this.rideService.confirmRide(rideId, userId, body.publish);
+    }
+
   }
   
