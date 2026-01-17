@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { ArrowLeftIcon, CheckCircleIcon, XIcon, SaveIcon, ShareIcon, AlertCircleIcon, MapPinIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -15,6 +15,7 @@ import { Textarea } from './ui/textarea';
 import { useNavigate,useLocation } from 'react-router-dom';
 import type { User } from "../types/user";
 import { saveRideLocal } from '../services/rideStorage';
+import { findNearestPathIndex } from "../utils/geo";
 
 
 
@@ -47,6 +48,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
 
   const [mapMode, setMapMode] = useState<"none" | "issue" | "segment">("none");
 
+
   const [issues, setIssues] = useState(ride?.issues || []);
   const [showUnconfirmedWarning, setShowUnconfirmedWarning] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -68,6 +70,14 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
   const [segmentEndPoint, setSegmentEndPoint] = useState<number | null>(null);
   const [segmentCondition, setSegmentCondition] = useState<'excellent' | 'good' | 'fair' | 'poor'>('good');
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
+  
+  const segmentStartRef = useRef<number | null>(segmentStartPoint);
+  const segmentEndRef = useRef<number | null>(segmentEndPoint);
+  const mapModeRef = useRef(mapMode);
+
+  useEffect(() => { segmentStartRef.current = segmentStartPoint; }, [segmentStartPoint]);
+  useEffect(() => { segmentEndRef.current = segmentEndPoint; }, [segmentEndPoint]);
+  useEffect(() => { mapModeRef.current = mapMode; }, [mapMode]);
   
   // Current step in the workflow
   const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
@@ -124,6 +134,40 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
         return 'Unknown';
     }
   };
+
+  const handleMapClick = (latLng: [number, number]) => {
+  if (!ride?.path?.length) return;
+
+  const nearest = findNearestPathIndex(ride.path, latLng);
+  const snapped = ride.path[nearest.index];
+
+  if (mapMode === "issue") {
+    setSelectedIssueLocation(snapped);
+    toast.success(`Issue location selected (point ${nearest.index})`);
+    return;
+  }
+
+  if (mapMode === "segment") {
+    // 第一次点：Start
+    if (segmentStartPoint === null) {
+      setSegmentStartPoint(nearest.index);
+      setSegmentEndPoint(null);
+      toast.success(`Segment start selected (point ${nearest.index})`);
+      return;
+    }
+
+    // 第二次点：End
+    if (nearest.index === segmentStartPoint) {
+      toast.error("End point must be different from start point");
+      return;
+    }
+
+    setSegmentEndPoint(nearest.index);
+    toast.success(`Segment end selected (point ${nearest.index})`);
+  }
+};
+
+
 
   const handleConfirmIssue = (issueId: string) => {
     setIssues((prev) =>
@@ -603,7 +647,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
           onClick={handleSaveAndPublish}
         >
           <ShareIcon className="w-5 h-5 mr-2" />
-          Save and Publish to Community
+          Save and Publish
           {confirmedIssues.length > 0 && ` (${confirmedIssues.length} reports)`}
         </Button>
       </div>
@@ -647,9 +691,15 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
               {/* Simplified Map for Issue Selection */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
-                  <MapView userPath={ride.path} issues={issues.map(i => ({ location: i.location, type: i.type }))} />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">Click map to add issue location</p>
+                  <MapView
+                    userPath={ride.path}
+                    issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
+                    onMapClick={mapMode === "issue" ? handleMapClick : undefined}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">
+                      Click map to add issue location
+                    </p>
                   </div>
                 </div>
               </div>
@@ -659,6 +709,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                   className="w-full h-12 bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     setIsAddingIssue(true);
+                    setMapMode("issue");
                     setEditingIssueId(null);
                     setSelectedIssueLocation(null);
                     setNewIssueDescription('');
@@ -747,6 +798,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                         className="flex-1 h-12"
                         onClick={() => {
                           setIsAddingIssue(false);
+                          setMapMode("none");
                           setEditingIssueId(null);
                           setSelectedIssueLocation(null);
                           setNewIssueDescription('');
@@ -825,9 +877,18 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
               {/* Simplified Map for Segment Selection */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
-                  <MapView userPath={ride.path} />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">Select route segment to rate</p>
+                  <MapView
+                    userPath={ride.path}
+                    selectedSegment={{
+                      startIndex: segmentStartPoint,
+                      endIndex: segmentEndPoint,
+                    }}
+                    onMapClick={mapMode === "segment" ? handleMapClick : undefined}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">
+                      Select route segment to rate
+                    </p>
                   </div>
                 </div>
               </div>
@@ -837,6 +898,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
                     setIsSelectingSegment(true);
+                    setMapMode("segment");
                     setEditingSegmentId(null);
                     setSegmentStartPoint(null);
                     setSegmentEndPoint(null);
@@ -862,8 +924,8 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                       <div>
                         <Label>Start Point</Label>
                         <Select
-                          value={segmentStartPoint?.toString()}
-                          onValueChange={(v) => setSegmentStartPoint(parseInt(v))}
+                          value={segmentStartPoint === null ? "" : String(segmentStartPoint)}
+                          onValueChange={(v) => setSegmentStartPoint(Number(v))}
                         >
                           <SelectTrigger className="h-12">
                             <SelectValue placeholder="Select start" />
@@ -880,8 +942,8 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                       <div>
                         <Label>End Point</Label>
                         <Select
-                          value={segmentEndPoint?.toString()}
-                          onValueChange={(v) => setSegmentEndPoint(parseInt(v))}
+                          value={segmentEndPoint === null ? "" : String(segmentEndPoint)}
+                          onValueChange={(v) => setSegmentEndPoint(Number(v))}
                         >
                           <SelectTrigger className="h-12">
                             <SelectValue placeholder="Select end" />
@@ -948,6 +1010,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                         className="flex-1 h-12"
                         onClick={() => {
                           setIsSelectingSegment(false);
+                          setMapMode("none");
                           setEditingSegmentId(null);
                           setSegmentStartPoint(null);
                           setSegmentEndPoint(null);
@@ -957,6 +1020,11 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
                       </Button>
                       <Button
                         className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+                        disabled={
+                          segmentStartPoint === null ||
+                          segmentEndPoint === null ||
+                          segmentStartPoint === segmentEndPoint
+                        }
                         onClick={editingSegmentId ? handleUpdateSegment : handleAddSegment}
                       >
                         {editingSegmentId ? 'Update' : 'Add'} Segment
