@@ -82,27 +82,6 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
   // Current step in the workflow
   const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
 
-const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-
-useEffect(() => {
-  if (!navigator.geolocation) {
-    console.warn("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-    },
-    (err) => {
-      console.warn("Geolocation error:", err.message);
-      // 用户拒绝也没关系，我们就走 ride.path / fallback
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
-  );
-}, []);
-
-
   if (!ride) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -155,11 +134,6 @@ useEffect(() => {
         return 'Unknown';
     }
   };
-
-  const mapCenter: [number, number] =
-  userLocation ??
-  (ride?.path?.length ? ride.path[ride.path.length - 1] : [39.9042, 116.4074]);
-
 
   const handleMapClick = (latLng: [number, number]) => {
   if (!ride?.path?.length) return;
@@ -457,7 +431,6 @@ useEffect(() => {
         {/* Map */}
         <div className="h-64">
           <MapView
-            currentLocation={mapCenter}
             userPath={ride.path}
             issues={issues.map((issue) => ({
               location: issue.location,
@@ -719,7 +692,6 @@ useEffect(() => {
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
                   <MapView
-                    currentLocation={mapCenter}
                     userPath={ride.path}
                     issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
                     onMapClick={mapMode === "issue" ? handleMapClick : undefined}
@@ -906,7 +878,6 @@ useEffect(() => {
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
                   <MapView
-                    currentLocation={mapCenter}
                     userPath={ride.path}
                     selectedSegment={{
                       startIndex: segmentStartPoint,
