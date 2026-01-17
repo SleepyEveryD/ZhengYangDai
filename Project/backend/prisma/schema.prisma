@@ -1,88 +1,101 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id          String   @id @default(uuid())
-  supabaseUid String   @unique
-  email       String   @unique
-  createdAt   DateTime @default(now())
-
-  trips       Trip[]
+generator client {
+  provider = "prisma-client-js"
 }
 
-enum TripStatus{
-  RECORDING
-  COMPLETED
-}
-
-model Trip {
-  id        String   @id @default(uuid())
-  userId    String
-  distance  Float
-  duration  Int
-  avgSpeed  Float
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-enum ReportStatus {
+enum RideStatus {
   DRAFT
   CONFIRMED
-  PUBLISHABLE
 }
 
-enum ConditionLevel {
-  OPTIMAL
-  MEDIUM
-  SUFFICIENT
-  MAINTENANCE
+enum RoadCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  NEED_REPAIR
 }
 
-model PathSegment {
-  id         String   @id @default(uuid())
-  streetName String
-  geometry   Json?
-  createdAt  DateTime @default(now())
-
-  reports PathReport[]
-  merged  MergedSegment?
+enum IssueType {
+  NONE
+  POTHOLE
+  BUMP
+  GRAVEL
+  CONSTRUCTION
+  OTHER
 }
+model Ride {
+  id               String      @id @default(uuid())
+  userId           String
 
-model PathReport {
-  id        String         @id @default(uuid())
-  userId    String?
-  anonId    String?        //匿名用户/会话ID（比如 cookie/session）
-  segmentId String
-  status    ReportStatus   @default(DRAFT)
-  condition ConditionLevel
-  notes     String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  routeGeometry    Unsupported("geography(LineString, 4326)")
 
-  segment PathSegment @relation(fields: [segmentId], references: [id])
-  user    User        @relation(fields: [userId], references: [id])
+  totalDistanceM   Float
+  totalDurationS   Int
+  avgSpeedKmh      Float
+  maxSpeedKmh      Float
+
+  status           RideStatus  @default(DRAFT)
+
+  startedAt        DateTime
+  endedAt          DateTime
+  createdAt        DateTime    @default(now())
+
+  // relations
+  segments         RideSegment[]
 
   @@index([userId])
-  @@index([anonId])
-  @@index([segmentId, status, createdAt])
 }
+model RideSegment {
+  id           String   @id @default(uuid())
+  rideId       String
+  orderIndex   Int
 
-model MergedSegment {
-  id              String         @id @default(uuid())
-  segmentId       String         @unique
-  mergedCondition ConditionLevel
-  confidence      Float
-  reportCount     Int
-  latestReportAt  DateTime
-  updatedAt       DateTime       @updatedAt
+  geometry     Unsupported("geography(LineString, 4326)")
+  lengthM      Float
 
-  segment PathSegment @relation(fields: [segmentId], references: [id])
+  createdAt   DateTime @default(now())
+
+  // relations
+  ride         Ride    @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  report       RideSegmentReport?
+
+  @@index([rideId])
+  @@unique([rideId, orderIndex])
+}
+model RideSegmentReport {
+  id              String        @id @default(uuid())
+  rideSegmentId   String        @unique
+
+  roadCondition   RoadCondition
+  issueType       IssueType     @default(NONE)
+  notes           String?
+
+  createdAt       DateTime      @default(now())
+
+  // relations
+  rideSegment     RideSegment   @relation(fields: [rideSegmentId], references: [id], onDelete: Cascade)
+}
+model PathSegment {
+  id           String   @id @default(uuid())
+  geometry     Unsupported("geography(LineString, 4326)")
+  lengthM      Float
+
+  createdAt    DateTime @default(now())
+
+  // relations
+  aggregated   AggregatedSegment?
+}
+model AggregatedSegment {
+  segmentId       String   @id
+  finalCondition  RoadCondition
+  agreementScore  Float
+  obstacleSummary Json?
+
+  lastUpdatedAt   DateTime @updatedAt
+
+  // relations
+  segment         PathSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
 }
