@@ -1,4 +1,4 @@
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+/*import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { RouteService } from './route.service';
 
 @Controller('routes')
@@ -18,4 +18,4 @@ export class RouteController {
 
     return this.routeService.searchRoutes(origin, destination);
   }
-}
+}*/

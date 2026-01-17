@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+/*import { Module } from '@nestjs/common';
 import { PathReportController } from './path-report.controller';
 import { PathReportService } from './path-report.service';
 
@@ -7,3 +7,4 @@ import { PathReportService } from './path-report.service';
   providers: [PathReportService]
 })
 export class PathReportModule {}
+*/

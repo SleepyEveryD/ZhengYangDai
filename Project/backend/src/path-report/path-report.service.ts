@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+/*import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConditionLevel, ReportStatus } from '@prisma/client';
 
@@ -72,4 +72,4 @@ export class PathReportService {
         orderBy: { createdAt: 'desc' },
     });
 }
-}
+}*/

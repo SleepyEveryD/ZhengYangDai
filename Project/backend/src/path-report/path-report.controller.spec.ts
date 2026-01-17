@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+/*import { Test, TestingModule } from '@nestjs/testing';
 import { PathReportController } from './path-report.controller';
 
 describe('PathReportController', () => {
@@ -15,4 +15,4 @@ describe('PathReportController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
-});
+});*/
