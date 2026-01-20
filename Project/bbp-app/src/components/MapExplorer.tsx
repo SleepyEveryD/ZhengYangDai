@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
@@ -16,14 +16,19 @@ type MapExplorerProps = {
   user: User;
 };
 
+type PathItem = {
+  id: string;
+  coordinates: [number, number][];
+  condition: "excellent" | "good" | "fair" | "poor";
+};
+
 export default function MapExplorer({ user }: MapExplorerProps) {
   const navigate = useNavigate();
   const [showLegend, setShowLegend] = useState(true);
 
-  // ✅ Day1：定位结果（[lat, lng]）
-  const [currentLocation, setCurrentLocation] = useState<
-    [number, number] | undefined
-  >(undefined);
+  // 当前定位（[lat, lng]）
+  const [currentLocation, setCurrentLocation] = useState<[number, number] | undefined>(undefined);
+  const [locReady, setLocReady] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -31,15 +36,49 @@ export default function MapExplorer({ user }: MapExplorerProps) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCurrentLocation([pos.coords.latitude, pos.coords.longitude]);
+        setLocReady(true);
       },
       () => {
-        // 定位失败：不阻塞页面（MapView 会用 fallbackCenter）
+        // 定位失败：不阻塞页面
+        setLocReady(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
+  /**
+   * ✅ 关键：不要用北京坐标当 demo path
+   * 用 currentLocation 当 base，生成附近的几条 demo 线路
+   */
+  const paths: PathItem[] = useMemo(() => {
+    const base: [number, number] = currentLocation ?? [45.4642, 9.19]; // Milan fallback
+    const [bLat, bLng] = base;
 
+    const mk = (dLat: number, dLng: number) => [bLat + dLat, bLng + dLng] as [number, number];
+
+    return [
+      {
+        id: "1",
+        coordinates: [mk(0, 0), mk(0.002, 0.0015), mk(0.004, 0.0025)],
+        condition: "excellent",
+      },
+      {
+        id: "2",
+        coordinates: [mk(0, 0), mk(0.0, 0.004), mk(0.003, 0.004)],
+        condition: "good",
+      },
+      {
+        id: "3",
+        coordinates: [mk(-0.002, 0.0015), mk(0, 0.0015), mk(0.002, 0.0015)],
+        condition: "fair",
+      },
+      {
+        id: "4",
+        coordinates: [mk(-0.004, -0.001), mk(-0.002, 0.001), mk(0.0, 0.003)],
+        condition: "poor",
+      },
+    ];
+  }, [currentLocation]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -49,20 +88,16 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           {/* Search Bar */}
           <div
             className="flex-1 bg-white rounded-full shadow-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow"
-            // ✅ 修正：你的路由是 /path/planning
             onClick={() => navigate("/path/planning")}
           >
             <SearchIcon className="w-5 h-5 text-gray-400" />
-            <span className="text-gray-400">
-              Search destination or plan route...
-            </span>
+            <span className="text-gray-400">Search destination or plan route...</span>
           </div>
 
           {/* User Avatar or Login Button */}
           {user ? (
             <div
               className="bg-white rounded-full shadow-lg p-2 cursor-pointer hover:shadow-xl transition-shadow"
-              // ✅ 修正：跳 profile 用绝对路径最稳
               onClick={() => navigate("/profile")}
             >
               <Avatar className="w-8 h-8">
@@ -85,46 +120,11 @@ export default function MapExplorer({ user }: MapExplorerProps) {
 
       {/* Map */}
       <div className="flex-1 relative">
+        {/* ✅ 关键：定位 ready 后强制重建 MapView，让它用真实 currentLocation 初始化 */}
         <MapView
+          key={locReady ? "map-loc-ready" : "map-loc-wait"}
           currentLocation={currentLocation}
-          paths={[
-            {
-              id: "1",
-              coordinates: [
-                [39.9042, 116.4074],
-                [39.9142, 116.4174],
-                [39.9242, 116.4274],
-              ],
-              condition: "excellent",
-            },
-            {
-              id: "2",
-              coordinates: [
-                [39.9042, 116.4074],
-                [39.9042, 116.4274],
-                [39.9242, 116.4274],
-              ],
-              condition: "good",
-            },
-            {
-              id: "3",
-              coordinates: [
-                [39.8942, 116.4174],
-                [39.9042, 116.4174],
-                [39.9142, 116.4174],
-              ],
-              condition: "fair",
-            },
-            {
-              id: "4",
-              coordinates: [
-                [39.8842, 116.4074],
-                [39.8942, 116.4174],
-                [39.9042, 116.4274],
-              ],
-              condition: "poor",
-            },
-          ]}
+          paths={paths}
         />
 
         {/* Legend */}
@@ -166,7 +166,6 @@ export default function MapExplorer({ user }: MapExplorerProps) {
         <div className="flex gap-3 pointer-events-auto">
           <Button
             className="flex-1 h-14 bg-white text-gray-900 hover:bg-gray-50 shadow-lg"
-            // ✅ 修正：你的路由是 /path/planning
             onClick={() => navigate("/path/planning")}
           >
             <NavigationIcon className="w-5 h-5 mr-2" />
@@ -176,7 +175,6 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           {user && (
             <Button
               className="flex-1 h-14 bg-green-600 hover:bg-green-700 shadow-lg"
-              // ✅ 修正：你的路由是 /ride/prepare
               onClick={() => navigate("/ride/prepare")}
             >
               <CircleDotIcon className="w-5 h-5 mr-2" />
@@ -195,14 +193,12 @@ export default function MapExplorer({ user }: MapExplorerProps) {
                 <strong>Guest Mode</strong>
               </p>
               <p className="text-blue-800">
-                You can view route planning, but cannot record rides or report
-                road conditions.
+                You can view route planning, but cannot record rides or report road conditions.
               </p>
             </div>
           </div>
           <Button
             className="w-full mt-3 h-10 bg-blue-600 hover:bg-blue-700 text-white"
-            // ✅ 修正：navigateTo 不存在
             onClick={() => navigate("/login")}
           >
             <LogInIcon className="w-4 h-4 mr-2" />
