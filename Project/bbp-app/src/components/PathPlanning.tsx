@@ -30,11 +30,15 @@ export default function PathPlanning({ user }: PathPlanningProps) {
     "Beijing Xicheng District Xidan",
   ];
 
-  const handleSearch = () => {
-    if (origin && destination) {
-      navigate("/path/results");
-    }
-  };
+const handleSearch = () => {
+  if (origin && destination) {
+    navigate(
+      `/path/results?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`
+    );
+  }
+};
+
+
 
   return (
     <div className="h-screen flex flex-col bg-white">

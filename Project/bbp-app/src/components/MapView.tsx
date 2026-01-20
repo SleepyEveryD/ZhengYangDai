@@ -7,6 +7,7 @@ type IssueMarker = {
 };
 
 type MapViewProps = {
+  paths: Path[];
   currentLocation?: [number, number];
   userPath?: [number, number][];
   issues?: IssueMarker[];
@@ -35,7 +36,7 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
     if (window.google?.maps) return resolve();
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
