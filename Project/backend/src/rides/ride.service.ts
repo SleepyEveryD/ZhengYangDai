@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SaveRideSegmentsDto } from './dto/save-ride-segments.dto';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+
 
 @Injectable()
 export class RideService {
@@ -14,44 +18,55 @@ export class RideService {
   /**
    * 保存 Draft Ride Segments + Reports（整批替换，原子操作）
    */
-  async saveDraftSegments(rideId: string, userId: string, dto: SaveRideSegmentsDto) {
-    const ride = await this.prisma.ride.findUnique({ where: { id: rideId } });
-
+   async saveDraftSegments(
+    rideId: string,
+    userId: string,
+    dto: SaveRideSegmentsDto,
+  ) {
+    const ride = await this.prisma.ride.findUnique({
+      where: { id: rideId },
+    });
+  
     if (!ride) throw new NotFoundException('Ride not found');
-    if (ride.userId !== userId) throw new ForbiddenException('Not your ride');
+    if (ride.userId !== userId) throw new ForbiddenException();
     if (ride.status !== 'DRAFT') {
-      throw new ConflictException('Ride already confirmed, cannot modify segments');
+      throw new ForbiddenException('Ride already confirmed');
     }
-
-    const ops: any[] = [];
-
-    // 删除旧 segments（cascade 会删 report）
-    ops.push(this.prisma.rideSegment.deleteMany({ where: { rideId } }));
-
-    // 重建 segments + report（用嵌套写入，避免 tx.delegate.create 的类型坑）
-    for (const s of dto.segments) {
-      ops.push(
-        (this.prisma as any).rideSegment.create({
+  
+    return this.prisma.$transaction(async (tx) => {
+      const prisma = tx as any;
+    
+      // 1️⃣ 删除旧 segments
+      await prisma.rideSegment.deleteMany({
+        where: { rideId },
+      });
+    
+      // 2️⃣ 创建新 segments + report
+      for (const seg of dto.segments) {
+        const segment = await prisma.rideSegment.create({
           data: {
             rideId,
-            orderIndex: s.orderIndex,
-            geometry: s.geometry,
-            lengthM: s.lengthM,
-            report: {
-              create: {
-                roadCondition: s.report.roadCondition,
-                issueType: s.report.issueType ?? 'NONE',
-                notes: s.report.notes,
-              },
-            },
+            orderIndex: seg.orderIndex,
+            geometry: seg.geometry,
+            lengthM: seg.lengthM,
           },
-        }),
-      );
-    }
-
-    await this.prisma.$transaction(ops);
-    return { ok: true };
+        });
+    
+        await prisma.rideSegmentReport.create({
+          data: {
+            rideSegmentId: segment.id,
+            roadCondition: seg.report.roadCondition,
+            issueType: seg.report.issueType ?? 'NONE',
+            notes: seg.report.notes,
+          },
+        });
+      }
+    
+      return { ok: true };
+    });
+    
   }
+  
 
   /**
    * Confirm Ride（DRAFT → CONFIRMED）

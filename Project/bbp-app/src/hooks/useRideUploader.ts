@@ -6,17 +6,49 @@ import api from "../lib/api";
 
 export function useRideUploader() {
   useEffect(() => {
-    console.log('🔥 useRideUploader mounted');
+    function mapCondition(
+      c: 'excellent' | 'good' | 'fair' | 'poor'
+    ): 'EXCELLENT' | 'GOOD' | 'FAIR' | 'NEED_REPAIR' {
+      switch (c) {
+        case 'excellent': return 'EXCELLENT';
+        case 'good': return 'GOOD';
+        case 'fair': return 'FAIR';
+        default: return 'NEED_REPAIR';
+      }
+    }
+    
+
     const upload = async () => {
       const rides = getPendingRides();
       console.log('📦 pending rides:', rides);
+   
 
       for (const ride of rides) {
         try {
+          console.log('Uploading ride', ride.id, {
+            roadConditionSegments: ride.roadConditionSegments,
+          });
           // 1️⃣ 保存 Draft Segments
           await api.put(`/rides/${ride.id}/segments`, {
-            segments: ride.roadConditionSegments,
+            segments: ride.roadConditionSegments.map((seg, index) => ({
+              orderIndex: index,
+          
+              geometry: {
+                type: "LineString",
+                coordinates: seg.pathCoordinates.map(
+                  ([lat, lng]) => [lng, lat] // GeoJSON 必须 lng,lat
+                ),
+              },
+          
+              lengthM: seg.pathCoordinates.length * 50, // 你现在的 approx 逻辑
+          
+              report: {
+                roadCondition: mapCondition(seg.condition),
+                issueType: "NONE",
+              },
+            })),
           });
+          
 
           // 2️⃣ Confirm Ride
           await api.post(`/rides/${ride.id}/confirm`, {

@@ -252,6 +252,7 @@ useEffect(() => {
     const finalRide = {
       ...ride,
       issues,
+      roadConditionSegments,
       uploadStatus: 'pending',
       publish: true,
       confirmedAt: new Date().toISOString(),

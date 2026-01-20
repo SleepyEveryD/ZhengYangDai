@@ -1,3 +1,4 @@
+//Project/backend/src/rides/dto/save-ride-segments.dto.ts
 export type RoadCondition =
   | 'EXCELLENT'
   | 'GOOD'

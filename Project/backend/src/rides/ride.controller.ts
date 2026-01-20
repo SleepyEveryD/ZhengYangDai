@@ -14,7 +14,10 @@ import {
   
   @Controller('rides')
   export class RideController {
-    constructor(private readonly rideService: RideService) {}
+    constructor(private readonly rideService: RideService) {
+      console.log('🔥🔥 RideController LOADED 🔥🔥');
+
+    }
   
     /**
      * 保存 Draft Ride Segments + Reports
@@ -26,6 +29,11 @@ import {
       @Body() dto: SaveRideSegmentsDto,
       @Req() req: any,
     ) {
+      console.log('[RideController] saveRideSegments called', {
+        rideId,
+        body: dto,
+        user: req.user,
+      });
       const userId = req.user.userId;
   
       return this.rideService.saveDraftSegments(
@@ -43,6 +51,11 @@ import {
       @Body() body: { publish: boolean },
       @Req() req: any,
     ) {
+      console.log('[RideController] confirmRide called', {
+        rideId,
+        body,
+        user: req.user,
+      });
       const userId = req.user.userId;
       return this.rideService.confirmRide(rideId, userId, body.publish);
     }
