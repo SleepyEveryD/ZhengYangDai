@@ -1,9 +1,26 @@
 // src/components/MapView.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+/* ================= Utils ================= */
+function isValidLatLng(lat: any, lng: any) {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng)
+  );
+}
+
+/* ================= Types ================= */
 type IssueMarker = {
   location: [number, number];
   type?: string;
+};
+
+type Path = {
+  id: string;
+  coordinates: [number, number][];
+  condition: string;
 };
 
 type MapViewProps = {
@@ -11,9 +28,7 @@ type MapViewProps = {
   currentLocation?: [number, number];
   userPath?: [number, number][];
   issues?: IssueMarker[];
-
   onMapClick?: (latLng: [number, number]) => void;
-
   selectedSegment?: {
     startIndex: number | null;
     endIndex: number | null;
@@ -26,7 +41,7 @@ declare global {
   }
 }
 
-/* ---------- Google Maps Loader（只加载一次） ---------- */
+/* ================= Google Maps Loader ================= */
 let googleMapsPromise: Promise<void> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<void> {
@@ -46,7 +61,9 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
   return googleMapsPromise;
 }
 
+/* ================= Component ================= */
 export default function MapView({
+  paths,
   currentLocation,
   userPath = [],
   issues = [],
@@ -56,84 +73,102 @@ export default function MapView({
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
 
-  const [mapReady, setMapReady] = useState(false); // ✅ 一定要在组件里面
+  const [mapReady, setMapReady] = useState(false);
 
-  // overlays
+  // overlays refs
+  const routePolylinesRef = useRef<any[]>([]);
   const userPathPolylineRef = useRef<any>(null);
   const selectedSegmentPolylineRef = useRef<any>(null);
   const issueMarkersRef = useRef<any[]>([]);
   const clickListenerRef = useRef<any>(null);
 
+  /* ---------- fallback center（永远安全） ---------- */
   const fallbackCenter = useMemo(() => {
-    if (currentLocation) return { lat: currentLocation[0], lng: currentLocation[1] };
-    if (userPath.length) return { lat: userPath[userPath.length - 1][0], lng: userPath[userPath.length - 1][1] };
-    return { lat: 39.9042, lng: 116.4074 };
-  }, [currentLocation, userPath]);
+    if (
+      currentLocation &&
+      isValidLatLng(currentLocation[0], currentLocation[1])
+    ) {
+      return { lat: currentLocation[0], lng: currentLocation[1] };
+    }
 
-  /* ---------- Init Map (只执行一次) ---------- */
+    if (paths.length && paths[0].coordinates.length) {
+      const [lat, lng] = paths[0].coordinates[0];
+      if (isValidLatLng(lat, lng)) {
+        return { lat, lng };
+      }
+    }
+
+    // Milan
+    return { lat: 45.4642, lng: 9.19 };
+  }, [currentLocation, paths]);
+
+  /* ---------- Init map ---------- */
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     if (!apiKey || !mapDivRef.current) return;
 
-    let isMounted = true;
+    let mounted = true;
 
     (async () => {
       await loadGoogleMaps(apiKey);
-      if (!isMounted) return;
-
-      const google = window.google;
+      if (!mounted) return;
 
       if (!mapRef.current) {
-        mapRef.current = new google.maps.Map(mapDivRef.current!, {
+        mapRef.current = new window.google.maps.Map(mapDivRef.current, {
           center: fallbackCenter,
-          zoom: 15,
+          zoom: 14,
           disableDefaultUI: true,
           gestureHandling: "greedy",
         });
       }
 
-      setMapReady(true); // ✅ 地图 ready 了
+      setMapReady(true);
     })();
 
     return () => {
-      isMounted = false;
+      mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- 绑定点击事件（地图 ready 后 & onMapClick 变化都要重新绑定） ---------- */
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !window.google?.maps) return;
-    const google = window.google;
-
-    // 清旧 listener
-    if (clickListenerRef.current) {
-      google.maps.event.removeListener(clickListenerRef.current);
-      clickListenerRef.current = null;
-    }
-
-    // 绑定新 listener
-    if (onMapClick) {
-      clickListenerRef.current = mapRef.current.addListener("click", (e: any) => {
-        onMapClick([e.latLng.lat(), e.latLng.lng()]);
-      });
-    }
-
-    return () => {
-      if (clickListenerRef.current) {
-        google.maps.event.removeListener(clickListenerRef.current);
-        clickListenerRef.current = null;
-      }
-    };
-  }, [mapReady, onMapClick]);
-
-  /* ---------- 更新中心点 ---------- */
+  /* ---------- Update center ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     mapRef.current.setCenter(fallbackCenter);
   }, [mapReady, fallbackCenter]);
 
-  /* ---------- 画 userPath polyline ---------- */
+  /* ================= Draw backend routes（⭐核心⭐） ================= */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    const google = window.google;
+
+    routePolylinesRef.current.forEach((p) => p.setMap(null));
+    routePolylinesRef.current = [];
+
+    paths.forEach((path) => {
+      const safeCoords = path.coordinates
+        .filter(([lat, lng]) => isValidLatLng(lat, lng))
+        .map(([lat, lng]) => ({ lat, lng }));
+
+      if (safeCoords.length < 2) {
+        console.warn("⚠️ skipped invalid route:", path.id);
+        return;
+      }
+
+      const polyline = new google.maps.Polyline({
+        path: safeCoords,
+        geodesic: true,
+        strokeColor: "#22c55e",
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        map: mapRef.current,
+      });
+
+      routePolylinesRef.current.push(polyline);
+    });
+  }, [mapReady, paths]);
+
+  /* ---------- Draw userPath ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -143,36 +178,22 @@ export default function MapView({
       userPathPolylineRef.current = null;
     }
 
-    if (!userPath.length) return;
+    const safeUserPath = userPath
+      .filter(([lat, lng]) => isValidLatLng(lat, lng))
+      .map(([lat, lng]) => ({ lat, lng }));
+
+    if (safeUserPath.length < 2) return;
 
     userPathPolylineRef.current = new google.maps.Polyline({
-      path: userPath.map(([lat, lng]) => ({ lat, lng })),
+      path: safeUserPath,
       geodesic: true,
       strokeOpacity: 0.9,
       strokeWeight: 4,
+      map: mapRef.current,
     });
-
-    userPathPolylineRef.current.setMap(mapRef.current);
   }, [mapReady, userPath]);
 
-  /* ---------- 画 issues markers ---------- */
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !window.google?.maps) return;
-    const google = window.google;
-
-    issueMarkersRef.current.forEach((m) => m.setMap(null));
-    issueMarkersRef.current = [];
-
-    issues.forEach((issue) => {
-      const marker = new google.maps.Marker({
-        position: { lat: issue.location[0], lng: issue.location[1] },
-        map: mapRef.current,
-      });
-      issueMarkersRef.current.push(marker);
-    });
-  }, [mapReady, issues]);
-
-  /* ---------- 高亮 segment ---------- */
+  /* ---------- Draw selected segment ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -182,25 +203,66 @@ export default function MapView({
       selectedSegmentPolylineRef.current = null;
     }
 
-    if (!selectedSegment || !userPath.length) return;
+    if (!selectedSegment || selectedSegment.startIndex === null) return;
 
-    const { startIndex, endIndex } = selectedSegment;
-    if (startIndex === null) return;
+    const s = selectedSegment.startIndex;
+    const e = selectedSegment.endIndex ?? s;
 
-    const s = startIndex;
-    const e = endIndex ?? startIndex;
-    const seg = userPath.slice(Math.min(s, e), Math.max(s, e) + 1);
-    if (!seg.length) return;
+    const seg = userPath
+      .slice(Math.min(s, e), Math.max(s, e) + 1)
+      .filter(([lat, lng]) => isValidLatLng(lat, lng))
+      .map(([lat, lng]) => ({ lat, lng }));
+
+    if (seg.length < 2) return;
 
     selectedSegmentPolylineRef.current = new google.maps.Polyline({
-      path: seg.map(([lat, lng]) => ({ lat, lng })),
+      path: seg,
       geodesic: true,
       strokeOpacity: 1,
       strokeWeight: 7,
+      map: mapRef.current,
+    });
+  }, [mapReady, selectedSegment, userPath]);
+
+  /* ---------- Draw issues ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+
+    issueMarkersRef.current.forEach((m) => m.setMap(null));
+    issueMarkersRef.current = [];
+
+    issues.forEach((issue) => {
+      const [lat, lng] = issue.location;
+      if (!isValidLatLng(lat, lng)) return;
+
+      const marker = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: mapRef.current,
+      });
+
+      issueMarkersRef.current.push(marker);
+    });
+  }, [mapReady, issues]);
+
+  /* ---------- Map click ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !onMapClick) return;
+
+    if (clickListenerRef.current) {
+      window.google.maps.event.removeListener(clickListenerRef.current);
+    }
+
+    clickListenerRef.current = mapRef.current.addListener("click", (e: any) => {
+      onMapClick([e.latLng.lat(), e.latLng.lng()]);
     });
 
-    selectedSegmentPolylineRef.current.setMap(mapRef.current);
-  }, [mapReady, selectedSegment, userPath]);
+    return () => {
+      if (clickListenerRef.current) {
+        window.google.maps.event.removeListener(clickListenerRef.current);
+        clickListenerRef.current = null;
+      }
+    };
+  }, [mapReady, onMapClick]);
 
   return (
     <div className="w-full h-full relative">

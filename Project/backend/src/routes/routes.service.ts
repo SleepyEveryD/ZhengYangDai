@@ -59,7 +59,7 @@ export class RoutesService {
         },
       ];
     } catch (error: any) {
-      console.error('❌ Google Directions API failed');
+      console.error('Google Directions API failed');
       console.error(error?.response?.data || error.message);
       throw new Error('API failed');
     }
