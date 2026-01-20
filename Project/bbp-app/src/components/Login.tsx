@@ -19,15 +19,28 @@ export default function Login() {
 
   //auto jum if already logged in
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      console.log("🟢 getSession on load:", data.session);
-  
-      if (data.session) {
-        console.log("🟢 already logged in, user:", data.session.user);
-        navigate("/map");
-      }
-    });
-  }, []);
+  let mounted = true;
+
+  // 1) 初始检查（避免闪一下）
+  supabase.auth.getSession().then(({ data }) => {
+    if (!mounted) return;
+    if (data.session) navigate("/map", { replace: true });
+  });
+
+  // 2) 监听登录/登出状态变化
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    console.log("🟡 auth state:", _event, session);
+    if (session) {
+      navigate("/map", { replace: true });
+    }
+  });
+
+  return () => {
+    mounted = false;
+    sub.subscription.unsubscribe();
+  };
+}, [navigate]);
+
   
   
   // email check
@@ -103,9 +116,6 @@ export default function Login() {
     // ✅ show alert: go to confirm email
     setShowVerifyTip(true);
   };
-  
-  
-  
 
   const handleGuestAccess = () => {
     navigate("/map");

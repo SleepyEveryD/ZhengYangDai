@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { ArrowLeftIcon, CheckCircleIcon, XIcon, SaveIcon, ShareIcon, AlertCircleIcon, MapPinIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -6,24 +6,17 @@ import { Badge } from './ui/badge';
 import MapView from './MapView';
 import type { Ride } from '../types/ride';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useNavigate,useLocation } from 'react-router-dom';
-import type { User } from "../types/user";
 import { saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
-
-
-
-type RideRecordConfirmProps = {
-  user: User;
-  setUser: (user: User) => void;
-};
-
+import { useAuth } from '../auth/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 type RoadConditionSegment = {
   id: string;
@@ -33,18 +26,17 @@ type RoadConditionSegment = {
   pathCoordinates: [number, number][];
 };
 
-export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmProps) {
+export default function RideRecordConfirm() {
+  const { user } = useAuth();
+
+  if (!user) {
+    // 没登录就回登录页（或给 guest 模式）
+    return <Navigate to="/login" replace />;
+  }
+
   const navigate = useNavigate();
   const location = useLocation();
   const ride: Ride | null = location.state?.ride ?? null;
-
-  if (!ride) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Ride record not found</p>
-      </div>
-    );
-  }
 
   const [mapMode, setMapMode] = useState<"none" | "issue" | "segment">("none");
 
@@ -200,6 +192,8 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
       confirmedAt: new Date().toISOString(),
     };
   
+    console.log("SAVE CLICKED: passed validation");
+    console.log("finalRide", finalRide);
     saveRideLocal(finalRide);
   
     toast.success('Ride saved locally');
@@ -436,6 +430,7 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
               location: issue.location,
               type: issue.type,
             }))}
+            onMapClick={mapMode !== "none" ? handleMapClick : undefined}
           />
         </div>
 
