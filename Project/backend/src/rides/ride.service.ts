@@ -23,49 +23,67 @@ export class RideService {
     userId: string,
     dto: SaveRideSegmentsDto,
   ) {
-    const ride = await this.prisma.ride.findUnique({
-      where: { id: rideId },
-    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const prisma = tx as any;
   
-    if (!ride) throw new NotFoundException('Ride not found');
-    if (ride.userId !== userId) throw new ForbiddenException();
-    if (ride.status !== 'DRAFT') {
-      throw new ForbiddenException('Ride already confirmed');
-    }
+        let ride = await prisma.ride.findUnique({
+          where: { id: rideId },
+        });
   
-    return this.prisma.$transaction(async (tx) => {
-      const prisma = tx as any;
-    
-      // 1️⃣ 删除旧 segments
-      await prisma.rideSegment.deleteMany({
-        where: { rideId },
+        if (!ride) {
+          ride = await prisma.ride.create({
+            data: {
+              id: rideId,
+              userId,
+              status: 'DRAFT',
+            },
+          });
+        }
+  
+        if (ride.userId !== userId) {
+          throw new ForbiddenException();
+        }
+  
+        if (ride.status !== 'DRAFT') {
+          throw new ForbiddenException('Ride already confirmed');
+        }
+  
+        await prisma.rideSegment.deleteMany({
+          where: { rideId },
+        });
+  
+        for (const seg of dto.segments) {
+          console.log('🧪 SEG.geometry =', JSON.stringify(seg.geometry));
+  
+          const segment = await prisma.rideSegment.create({
+            data: {
+              rideId,
+              orderIndex: seg.orderIndex,
+              geometry: seg.geometry,
+              lengthM: seg.lengthM,
+            },
+          });
+  
+          await prisma.rideSegmentReport.create({
+            data: {
+              rideSegmentId: segment.id,
+              roadCondition: seg.report.roadCondition,
+              issueType: seg.report.issueType ?? 'NONE',
+              notes: seg.report.notes,
+            },
+          });
+        }
+  
+        return { ok: true };
       });
-    
-      // 2️⃣ 创建新 segments + report
-      for (const seg of dto.segments) {
-        const segment = await prisma.rideSegment.create({
-          data: {
-            rideId,
-            orderIndex: seg.orderIndex,
-            geometry: seg.geometry,
-            lengthM: seg.lengthM,
-          },
-        });
-    
-        await prisma.rideSegmentReport.create({
-          data: {
-            rideSegmentId: segment.id,
-            roadCondition: seg.report.roadCondition,
-            issueType: seg.report.issueType ?? 'NONE',
-            notes: seg.report.notes,
-          },
-        });
-      }
-    
-      return { ok: true };
-    });
-    
+    } catch (err) {
+      console.error('🔥 saveDraftSegments ERROR:', err);
+      throw err; // 关键：不要吞
+    }
   }
+  
+  
   
 
   /**
