@@ -5,9 +5,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  
+
   private pool: Pool;
 
   constructor() {
+    console.log('🔥 PrismaService using DATABASE_URL =', process.env.DATABASE_URL);
     // 用 DATABASE_URL 建立 pg 连接池
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
@@ -16,7 +19,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     
     const pool = new Pool({
         connectionString,
-        ssl: true,
+        ssl: {
+          rejectUnauthorized: false, // 👈 解决 self-signed cert
+        },
     });
 
     const adapter = new PrismaPg(pool);

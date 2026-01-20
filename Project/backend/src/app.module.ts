@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 //import { PathReportModule } from './path-report/path-report.module';
 import { AuthModule } from './auth/auth.module';
 import { TestModule } from './debug/debug.module';
+import {RideModule} from './rides/ride.module';
 
 @Module({
   imports: [
@@ -16,6 +17,8 @@ import { TestModule } from './debug/debug.module';
     AuthModule,
     //PathReportModule,
     TestModule, // test route
+    RideModule
+
   ],
   controllers: [AppController],
   providers: [AppService],

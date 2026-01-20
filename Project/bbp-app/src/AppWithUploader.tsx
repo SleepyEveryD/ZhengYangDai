@@ -1,10 +1,11 @@
 // src/AppWithUploader.tsx
+import { AppRoutes } from "./routes";
 import { useRideUploader } from "./hooks/useRideUploader";
 
 export function AppWithUploader() {
   console.log("🔥 AppWithUploader render");
 
-  useRideUploader();
+  useRideUploader(); // 副作用 OK
 
-  return <div>TEST APP WITH UPLOADER</div>;
+  return <AppRoutes />; // ✅ 关键点
 }

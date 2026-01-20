@@ -1,3 +1,4 @@
+//Project/bbp-app/src/routes.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./components/Login";
