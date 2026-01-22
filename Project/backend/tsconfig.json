@@ -23,12 +23,5 @@
     "noFallthroughCasesInSwitch": false
   },
 
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/trips/**",
-    "src/rides/**",
-    "src/lib/**",
-    "src/path-report/**"
-  ]
+ 
 }
