@@ -13,7 +13,9 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class RideService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    ) {}
 
   /**
    * 保存 Draft Ride Segments + Reports（整批替换，原子操作）
@@ -83,9 +85,6 @@ export class RideService {
     }
   }
   
-  
-  
-
   /**
    * Confirm Ride（DRAFT → CONFIRMED）
    * 当前 schema 里没有 published/confirmedAt，所以这里只更新 status
