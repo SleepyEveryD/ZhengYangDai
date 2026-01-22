@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   ArrowLeftIcon,
@@ -13,35 +13,74 @@ import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import MapView from "./MapView";
-import type { Route } from "../types/route";
 import type { User } from "../types/user";
 
-/**
- * ⚠️ 当前阶段说明：
- * - route 数据这里仍然是“页面级假数据 / 临时状态”
- * - 后续会从 store / API 获取
- */
+/* ================= Types ================= */
+
+type Segment = {
+  condition: string;
+  distance: number;
+  description?: string;
+};
+
+type Comment = {
+  user: string;
+  rating: number;
+  content: string;
+  date: string;
+};
+
+type RouteDetail = {
+  id: string;
+  name: string;
+  distance: number;
+  duration: number;
+  rating: number;
+  condition: string;
+  path: [number, number][];
+  segments: Segment[];
+
+  // ⬇️ 下面两个后端可能没有
+  elevation?: number[];
+  comments?: Comment[];
+};
 
 type PathDetailProps = {
   user?: User;
-  routes?: Route[]; // 临时：用于从列表中查找
 };
 
-export default function PathDetail({ user, routes = [] }: PathDetailProps) {
+/* ================= Component ================= */
+
+export default function PathDetail({ user }: PathDetailProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
 
-  const route = routes.find((r) => r.id === id);
+  /**
+   * ✅ 关键修复点：
+   * - 从 navigate(state) 里取 route
+   * - 如果没有（刷新 / 直链），就优雅降级
+   */
+  const route = (location.state as any)?.route as RouteDetail | undefined;
 
-  if (!route) {
+  /* ---------- 找不到 route（最安全的兜底） ---------- */
+  if (!route || route.id !== id) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Route not found</p>
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-600">Route not found</p>
+        <Button onClick={() => navigate("/path/results")}>
+          Back to results
+        </Button>
       </div>
     );
   }
 
-  const getConditionColor = (condition: Route["condition"]) => {
+  /* ---------- 安全默认值（⭐ 解决白屏核心） ---------- */
+  const elevation = route.elevation ?? [];
+  const comments = route.comments ?? [];
+
+  /* ---------- helpers ---------- */
+  const getConditionColor = (condition: string) => {
     switch (condition) {
       case "excellent":
         return "bg-green-100 text-green-800";
@@ -56,7 +95,7 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
     }
   };
 
-  const getConditionText = (condition: Route["condition"]) => {
+  const getConditionText = (condition: string) => {
     switch (condition) {
       case "excellent":
         return "Excellent";
@@ -71,6 +110,8 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
     }
   };
 
+  /* ================= Render ================= */
+
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
@@ -78,7 +119,7 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate("/path/results")}
+          onClick={() => navigate(-1)}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -90,7 +131,7 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
         {/* Map */}
         <div className="h-64">
           <MapView
-            highlightedPaths={[
+            paths={[
               {
                 id: route.id,
                 coordinates: route.path,
@@ -135,37 +176,41 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
             </CardContent>
           </Card>
 
-          {/* Elevation Profile */}
+          {/* Elevation */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <TrendingUpIcon className="w-5 h-5 text-gray-600" />
               <span className="text-gray-900">Elevation Change</span>
             </div>
+
             <Card>
               <CardContent className="p-4">
-                <div className="h-32 flex items-end justify-between gap-1">
-                  {route.elevation.map((height, index) => (
-                    <div
-                      key={index}
-                      className="flex-1 bg-green-500 rounded-t"
-                      style={{ height: `${(height / 30) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between mt-2 text-gray-500">
-                  <span>Start</span>
-                  <span>End</span>
-                </div>
+                {elevation.length === 0 ? (
+                  <p className="text-gray-500 text-center">
+                    No elevation data available
+                  </p>
+                ) : (
+                  <div className="h-32 flex items-end justify-between gap-1">
+                    {elevation.map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-green-500 rounded-t"
+                        style={{ height: `${Math.min(h, 30) * 3}%` }}
+                      />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Road Segments */}
+          {/* Segments */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <AlertCircleIcon className="w-5 h-5 text-gray-600" />
               <span className="text-gray-900">Segment Details</span>
             </div>
+
             <div className="space-y-3">
               {route.segments.map((segment, index) => (
                 <Card key={index}>
@@ -188,17 +233,17 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
                             Segment {index + 1}
                           </span>
                           <Badge
-                            className={getConditionColor(
-                              segment.condition
-                            )}
+                            className={getConditionColor(segment.condition)}
                             variant="secondary"
                           >
                             {getConditionText(segment.condition)}
                           </Badge>
                         </div>
-                        <p className="text-gray-600 mb-2">
-                          {segment.description}
-                        </p>
+                        {segment.description && (
+                          <p className="text-gray-600 mb-2">
+                            {segment.description}
+                          </p>
+                        )}
                         <p className="text-gray-500">
                           {segment.distance} km
                         </p>
@@ -215,86 +260,61 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
             <div className="flex items-center gap-2 mb-3">
               <MessageCircleIcon className="w-5 h-5 text-gray-600" />
               <span className="text-gray-900">
-                User Reviews ({route.comments.length})
+                User Reviews ({comments.length})
               </span>
             </div>
 
-            {route.comments.length > 0 ? (
+            {comments.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center text-gray-500">
+                  No user reviews yet
+                </CardContent>
+              </Card>
+            ) : (
               <div className="space-y-3">
-                {route.comments.map((comment, index) => (
-                  <Card key={index}>
+                {comments.map((c, i) => (
+                  <Card key={i}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback className="bg-green-600 text-white">
-                            {comment.user[0]}
+                        <Avatar>
+                          <AvatarFallback>
+                            {c.user[0]}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-900">
-                              {comment.user}
-                            </span>
+                          <div className="flex justify-between mb-1">
+                            <span>{c.user}</span>
                             <span className="text-gray-500">
-                              {comment.date}
+                              {c.date}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1 mb-2">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <StarIcon
-                                key={i}
-                                className={`w-4 h-4 ${
-                                  i < comment.rating
-                                    ? "text-yellow-500 fill-yellow-500"
-                                    : "text-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-gray-600">
-                            {comment.content}
-                          </p>
+                          <p className="text-gray-600">{c.content}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <MessageCircleIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500">
-                    No user reviews yet
-                  </p>
-                </CardContent>
-              </Card>
             )}
           </div>
         </div>
       </div>
 
-      {/* Action Button */}
+      {/* Action */}
       <div className="p-4 border-t bg-white space-y-3">
         <Button className="w-full h-14 bg-green-600 hover:bg-green-700">
           Select This Route
         </Button>
 
-        {/* Guest Login Prompt */}
         {!user && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <p className="text-blue-900 mb-2">
-              Login to record ride tracks and report road conditions
-            </p>
-            <Button
-              variant="outline"
-              className="w-full h-10 border-blue-600 text-blue-600 hover:bg-blue-50"
-              onClick={() => navigate("/login")}
-            >
-              <LogInIcon className="w-4 h-4 mr-2" />
-              Login Now
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate("/login")}
+          >
+            <LogInIcon className="w-4 h-4 mr-2" />
+            Login to continue
+          </Button>
         )}
       </div>
     </div>
