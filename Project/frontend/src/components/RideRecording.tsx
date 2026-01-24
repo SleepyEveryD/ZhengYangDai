@@ -11,6 +11,8 @@ import MapView from "./MapView";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
+import { getCurrentRide,saveRideLocal } from '../services/rideStorage';
+
 
 /**
  * TRACK_MODE:
@@ -188,19 +190,20 @@ export default function RideRecording() {
     setCurrentIssue(null);
   };
 
+// GeoJSON → path 的简单转换
+  const geoJsonToPath = (geo: GeoJSON.LineString): [number, number][] => {
+    return geo.coordinates.map(
+      ([lng, lat]) => [lat, lng] // ⚠️ 注意你项目里是 [lat, lng]
+    );
+  };
+
   const handleStop = () => {
     const currentRide = getCurrentRide();
-  
-    if (!currentRide) {
-      console.error("No active ride found in localStorage");
-      return;
-    }
-  
-    // ✅ 防止 duration = 0 导致 Infinity
+    if (!currentRide) return;
+
     const safeDuration = Math.max(duration, 1);
     const avgSpeed = distance / (safeDuration / 3600);
-  
-    // ✅ mock 路线
+
     const routeGeoJsonMock: GeoJSON.LineString = {
       type: "LineString",
       coordinates: [
@@ -211,28 +214,29 @@ export default function RideRecording() {
         [9.1906, 45.4656],
       ],
     };
-  
+
     const updatedRide = {
       ...currentRide,
-  
-      // ✅ 结束时间
-      endedAt: new Date(),
-  
-      // ✅ 写入 mock 路线
       routeGeoJson: routeGeoJsonMock,
-  
-      // （可选但推荐）状态流转
-      uploadStatus: "pending",
+
+      endedAt: new Date(),
+      avgSpeed: Number(avgSpeed.toFixed(1)),
+      date: new Date().toISOString(),
+      distance: parseFloat(distance.toFixed(2)),
+      duration,
+      avgSpeed: parseFloat(avgSpeed.toFixed(1)),
+      maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
+      // ✅ 核心：保证 confirm 页继续用 path
+      path: geoJsonToPath(routeGeoJsonMock),
+      issues: detectedIssues,
+      uploadStatus: "draft" as const,
+
     };
-  
-    console.log("RideRecording.tsx >> updatedRide:", updatedRide);
-  
-    // ✅ 覆盖保存（localStorage 里仍然只有一条 ride）
+
     saveRideLocal(updatedRide);
-  
-    // ✅ 跳转确认页
     navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
+
   
 
   return (
