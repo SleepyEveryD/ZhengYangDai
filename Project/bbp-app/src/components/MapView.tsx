@@ -33,6 +33,11 @@ type MapViewProps = {
     startIndex: number | null;
     endIndex: number | null;
   };
+   weather?: {
+    weather: string;
+    temperature: number;
+    windDirection: string;
+  } | null;
 };
 
 declare global {
@@ -69,6 +74,7 @@ export default function MapView({
   issues = [],
   onMapClick,
   selectedSegment,
+  weather,
 }: MapViewProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -82,25 +88,15 @@ export default function MapView({
   const issueMarkersRef = useRef<any[]>([]);
   const clickListenerRef = useRef<any>(null);
 
-  /* ---------- fallback center（永远安全） ---------- */
-  const fallbackCenter = useMemo(() => {
-    if (
-      currentLocation &&
-      isValidLatLng(currentLocation[0], currentLocation[1])
-    ) {
-      return { lat: currentLocation[0], lng: currentLocation[1] };
-    }
+ const fallbackCenter = useMemo(() => {
+  if (currentLocation && isValidLatLng(currentLocation[0], currentLocation[1])) {
+    return { lat: currentLocation[0], lng: currentLocation[1] };
+  }
 
-    if (paths.length && paths[0].coordinates.length) {
-      const [lat, lng] = paths[0].coordinates[0];
-      if (isValidLatLng(lat, lng)) {
-        return { lat, lng };
-      }
-    }
+  // 🇮🇹 Milan（固定默认）
+  return { lat: 45.4642, lng: 9.19 };
+}, [currentLocation]);
 
-    // Milan
-    return { lat: 45.4642, lng: 9.19 };
-  }, [currentLocation, paths]);
 
   /* ---------- Init map ---------- */
   useEffect(() => {
@@ -138,6 +134,12 @@ export default function MapView({
   }, [mapReady, fallbackCenter]);
 
   /* ================= Draw backend routes（⭐核心⭐） ================= */
+  const ROUTE_COLORS = [
+  "#22c55e", // green
+  "#3b82f6", // blue
+  "#a855f7", // purple
+];
+
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -145,20 +147,21 @@ export default function MapView({
     routePolylinesRef.current.forEach((p) => p.setMap(null));
     routePolylinesRef.current = [];
 
-    paths.forEach((path) => {
+    paths.forEach((path, index) => {
+
       const safeCoords = path.coordinates
         .filter(([lat, lng]) => isValidLatLng(lat, lng))
         .map(([lat, lng]) => ({ lat, lng }));
 
       if (safeCoords.length < 2) {
-        console.warn("⚠️ skipped invalid route:", path.id);
+        console.warn("skipped invalid route:", path.id);
         return;
       }
 
       const polyline = new google.maps.Polyline({
         path: safeCoords,
         geodesic: true,
-        strokeColor: "#22c55e",
+        strokeColor: ROUTE_COLORS[index % ROUTE_COLORS.length],
         strokeOpacity: 0.9,
         strokeWeight: 6,
         map: mapRef.current,
@@ -264,9 +267,18 @@ export default function MapView({
     };
   }, [mapReady, onMapClick]);
 
-  return (
-    <div className="w-full h-full relative">
-      <div ref={mapDivRef} className="absolute inset-0" />
-    </div>
-  );
+ return (
+  <div className="w-full h-full relative">
+    <div ref={mapDivRef} className="absolute inset-0" />
+
+    {weather && (
+      <div className="absolute top-4 right-4 z-[9999] bg-white rounded-lg shadow-lg px-4 py-3 text-sm">
+        <div className="font-semibold">{weather.weather}</div>
+        <div>{weather.temperature} °C</div>
+        <div>Wind: {weather.windDirection}</div>
+      </div>
+    )}
+  </div>
+);
+
 }

@@ -24,6 +24,11 @@ export default function MapExplorer({ user }: MapExplorerProps) {
   const [currentLocation, setCurrentLocation] = useState<
     [number, number] | undefined
   >(undefined);
+  const [weather, setWeather] = useState<{
+    weather: string;
+    temperature: number;
+    windDirection: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -38,6 +43,24 @@ export default function MapExplorer({ user }: MapExplorerProps) {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+  useEffect(() => {
+  if (!currentLocation) return;
+
+  const [lat, lon] = currentLocation;
+
+  fetch(
+    `http://localhost:3000/weathertest?lat=${lat}&lon=${lon}`
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      setWeather(data);
+    })
+    .catch((err) => {
+      console.error("weather fetch failed", err);
+    });
+    console.log("MapExplorer weather =", weather);
+
+}, [currentLocation]);
 
 
 
@@ -125,6 +148,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
               condition: "poor",
             },
           ]}
+          weather={weather}
         />
 
         {/* Legend */}

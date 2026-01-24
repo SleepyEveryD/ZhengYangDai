@@ -113,24 +113,17 @@ useEffect(() => {
       {/* Map */}
       <div className="h-64 relative">
         
-        <MapView
-          currentLocation={currentLocation ?? undefined}
-        paths={
-  selectedRoute
-    ? [
-        {
-          id: selectedRoute.id,
-          coordinates: selectedRoute.path.map(
-  (p: any) => [Number(p[0]), Number(p[1])] as [number, number]
-),
+       <MapView
+  currentLocation={currentLocation ?? undefined}
+  paths={routes.map((route) => ({
+    id: route.id,
+    coordinates: route.path.map(
+      (p) => [p[0], p[1]] as [number, number]
+    ),
+    condition: route.condition,
+  }))}
+/>
 
-          condition: selectedRoute.condition,
-        },
-      ]
-    : []
-}
-  
-        />
 
         {isAnimating && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">

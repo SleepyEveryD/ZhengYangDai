@@ -9,6 +9,10 @@ import { TestModule } from './debug/debug.module';
 import { TripsModule } from "./trips/trips.module";
 import { MapModule } from './map/map.module';
 import { RoutesModule } from './routes/routes.module';
+import { WeatherModule } from './weather/weather.module';
+
+import { WeathertestController } from './weathertest/weathertest.controller';
+
 
 @Module({
   imports: [
@@ -23,8 +27,9 @@ import { RoutesModule } from './routes/routes.module';
     MapModule,
     //RoutesApiModule,
     RoutesModule,
+    WeatherModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, WeathertestController],
   providers: [AppService],
 })
 export class AppModule {}
