@@ -26,6 +26,7 @@ const DEMO_JITTER = 0.0006;
 export default function RideRecording() {
   const navigate = useNavigate();
 
+
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
@@ -188,27 +189,51 @@ export default function RideRecording() {
   };
 
   const handleStop = () => {
-    // ✅ 防止 duration=0 导致 avgSpeed Infinity
+    const currentRide = getCurrentRide();
+  
+    if (!currentRide) {
+      console.error("No active ride found in localStorage");
+      return;
+    }
+  
+    // ✅ 防止 duration = 0 导致 Infinity
     const safeDuration = Math.max(duration, 1);
     const avgSpeed = distance / (safeDuration / 3600);
-
-    const ride = {
-      id: `ride-${Date.now()}`,
-      date: new Date().toISOString(),
-      distance: parseFloat(distance.toFixed(2)),
-      duration,
-      avgSpeed: parseFloat(avgSpeed.toFixed(1)),
-      maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
-      path, // ✅ 此时 path 已经是米兰/真实轨迹
-      issues: detectedIssues,
-      uploadStatus: "draft" as const,
+  
+    // ✅ mock 路线
+    const routeGeoJsonMock: GeoJSON.LineString = {
+      type: "LineString",
+      coordinates: [
+        [9.1876, 45.4635],
+        [9.1884, 45.4641],
+        [9.1891, 45.4646],
+        [9.1899, 45.4651],
+        [9.1906, 45.4656],
+      ],
     };
-
-    // 可选：调试一下
-    // console.log("ride.path first/last", ride.path[0], ride.path[ride.path.length - 1]);
-
-    navigate("/ride/confirm", { state: { ride } });
+  
+    const updatedRide = {
+      ...currentRide,
+  
+      // ✅ 结束时间
+      endedAt: new Date(),
+  
+      // ✅ 写入 mock 路线
+      routeGeoJson: routeGeoJsonMock,
+  
+      // （可选但推荐）状态流转
+      uploadStatus: "pending",
+    };
+  
+    console.log("RideRecording.tsx >> updatedRide:", updatedRide);
+  
+    // ✅ 覆盖保存（localStorage 里仍然只有一条 ride）
+    saveRideLocal(updatedRide);
+  
+    // ✅ 跳转确认页
+    navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
+  
 
   return (
     <div className="h-screen flex flex-col bg-white relative">

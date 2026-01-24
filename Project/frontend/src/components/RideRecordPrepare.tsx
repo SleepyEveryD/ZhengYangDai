@@ -7,9 +7,15 @@ import {
   AlertTriangleIcon,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
+import { useAuth } from '../auth/AuthContext';
+import { saveRideLocal } from '../services/rideStorage';
+
+
 
 export default function RideRecordPrepare() {
   const navigate = useNavigate();
+  const user = useAuth(); 
+
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-green-50 to-blue-50">
@@ -87,12 +93,30 @@ export default function RideRecordPrepare() {
       <div className="p-4">
         <Button
           className="w-full h-16 bg-green-600 hover:bg-green-700 shadow-lg"
-          onClick={() => navigate("/ride/recording")}
+          onClick={() => {
+            const now = new Date();
+
+            const ride = {
+              id: crypto.randomUUID(),
+              userId: user.id, // ⬅️ 本地模式 / 未登录可用
+              status: "DRAFT" as const,
+              startedAt: now,
+              endedAt: null,
+              routeGeoJson: null,
+            };
+            console.log("RideRecordPrepare.tsx>> now is at" + now);
+            
+            saveRideLocal(ride);
+            navigate("/ride/recording");
+          }}
         >
           <CircleDotIcon className="w-6 h-6 mr-2" />
           Start Riding
         </Button>
       </div>
+
+
+
     </div>
   );
 }
