@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TestModule } from './debug/debug.module';
 import {RideModule} from './rides/ride.module';
+import { ReportModule } from "./report/report.module.ts";
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import {RideModule} from './rides/ride.module';
     AuthModule,
     //PathReportModule,
     TestModule, // test route
-    RideModule
+    RideModule,
+    ReportModule
 
   ],
   controllers: [AppController],

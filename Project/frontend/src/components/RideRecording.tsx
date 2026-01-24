@@ -205,19 +205,26 @@ export default function RideRecording() {
     const avgSpeed = distance / (safeDuration / 3600);
 
     const routeGeoJsonMock: GeoJSON.LineString = {
-      type: "LineString",
-      coordinates: [
-        [9.1876, 45.4635],
-        [9.1884, 45.4641],
-        [9.1891, 45.4646],
-        [9.1899, 45.4651],
-        [9.1906, 45.4656],
-      ],
+      "type": "LineString",
+      "coordinates": [
+        [9.18760, 45.46350],
+        [9.18820, 45.46355],
+        [9.18890, 45.46360],
+    
+        [9.18940, 45.46362],
+        [9.18980, 45.46390], 
+        [9.18985, 45.46440],
+    
+        [9.18988, 45.46495],
+        [9.19020, 45.46530],
+        [9.19060, 45.46560]
+      ]
     };
     const rideForlocalStorage ={
       ...currentRide,
       endedAt: new Date(),
       routeGeoJson: routeGeoJsonMock
+      //todo: 前端路径处理， 处理完赋值给routeGeoJson， 上面有mock数据做参考
     }
 
     const updatedRide = {
