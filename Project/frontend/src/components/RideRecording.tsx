@@ -214,6 +214,11 @@ export default function RideRecording() {
         [9.1906, 45.4656],
       ],
     };
+    const rideForlocalStorage ={
+      ...currentRide,
+      endedAt: new Date(),
+      routeGeoJson: routeGeoJsonMock
+    }
 
     const updatedRide = {
       ...currentRide,
@@ -232,7 +237,7 @@ export default function RideRecording() {
 
     };
 
-    saveRideLocal(updatedRide);
+    saveRideLocal(rideForlocalStorage);
     navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
 
