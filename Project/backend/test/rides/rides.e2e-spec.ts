@@ -1,3 +1,5 @@
+//npx jest --config test/jest-e2e.json rides.e2e-spec.ts
+//it tests it can confirm function 
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';

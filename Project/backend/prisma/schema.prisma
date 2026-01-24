@@ -7,6 +7,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
+
 enum RideStatus {
   DRAFT
   CONFIRMED
@@ -28,63 +29,123 @@ enum IssueType {
   OTHER
 }
 
+
+
 model Ride {
-  id              String     @id @default(uuid())
-  userId          String
-  routeGeoJson    Json?
-  routeGeometry   Unsupported("geography(LineString, 4326)")?  // 添加 ?
-  status          RideStatus @default(DRAFT)
-  startedAt       DateTime
-  endedAt         DateTime
-  createdAt       DateTime   @default(now())
-  streets         RideStreet[]
+  id             String     @id @default(uuid())
+  userId         String
+
+  routeGeoJson   Json?
+  routeGeometry  Unsupported("geography(LineString, 4326)")?
+
+  status         RideStatus @default(DRAFT)
+
+  startedAt      DateTime
+  endedAt        DateTime
+  createdAt      DateTime   @default(now())
+
+  streets        RideStreet[]
+
   @@index([userId])
 }
 
 model Street {
-  id            String   @id @default(uuid())
-  externalId    String   @unique
-  name          String?
-  city          String?
-  country       String?
-  geometry      Unsupported("geography(LineString, 4326)")?  // 添加 ?
-  createdAt     DateTime @default(now())
-  rides         RideStreet[]
-  reports       StreetReport[]
-  aggregation   StreetAggregation?
+  id           String   @id @default(uuid())
+
+  // External map provider ID (OSM / Google / Mapbox)
+  externalId   String   @unique
+
+  name         String?
+  city         String?
+  country      String?
+
+  geometry     Unsupported("geography(LineString, 4326)")?
+
+  createdAt    DateTime @default(now())
+
+  rides        RideStreet[]
+  reports      StreetReport[]
+  issues       StreetIssue[]
+  aggregation  StreetAggregation?
+
   @@index([externalId])
   @@index([name])
   @@index([city, name])
 }
 
+
 model RideStreet {
   rideId     String
   streetId   String
+
+  // how much of the street was covered in this ride (0–1)
   coverage   Float?
+
   ride       Ride   @relation(fields: [rideId], references: [id], onDelete: Cascade)
   street     Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
+
   @@id([rideId, streetId])
   @@index([streetId])
 }
 
+
+
+/// One user → one overall opinion per street
 model StreetReport {
   id             String        @id @default(uuid())
   userId         String
   streetId       String
+
   roadCondition  RoadCondition
   issueType      IssueType     @default(NONE)
   notes          String?
+
+  rideId         String?       // optional: link to the ride that generated this report
+
   createdAt      DateTime      @default(now())
+
   street         Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
+
   @@unique([userId, streetId])
   @@index([streetId])
+  @@index([userId])
 }
+
+/// One user → many concrete issues per street
+model StreetIssue {
+  id          String     @id @default(uuid())
+  userId      String
+  streetId    String
+
+  issueType   IssueType
+  location    Unsupported("geography(Point, 4326)")
+
+  severity    Int?       // optional 1–5
+  notes       String?
+
+  rideId      String?    // optional: issue observed during a ride
+
+  createdAt   DateTime   @default(now())
+
+  street      Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
+
+  @@index([streetId])
+  @@index([issueType])
+  @@index([userId])
+}
+
+
 
 model StreetAggregation {
   streetId        String   @id
+
   finalCondition  RoadCondition
   agreementScore  Float
+
+  /// e.g. { "POTHOLE": 12, "BUMP": 4 }
   issueSummary    Json?
+
   lastUpdatedAt   DateTime @updatedAt
+
   street          Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
 }
