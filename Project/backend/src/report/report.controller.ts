@@ -11,8 +11,25 @@ export class PathReportController {
   async resolveStreets(
     @Body() body: { points: { index: number; coord: [number, number] }[] }
   ) {
+    /*
+    console.log(
+      '[PathReportController] resolve-streets called, points =',
+      body.points?.length
+    );
+    */
+  
+    const streets =
+      await this.streetResolver.resolveFromSampledPoints(body.points);
+    /*
+    console.log(
+      '[PathReportController] resolved streets =',
+      JSON.stringify(streets, null, 2)
+    );
+    */
+  
     return {
-      streets: await this.streetResolver.resolveFromSampledPoints(body.points),
+      streets,
     };
   }
+  
 }

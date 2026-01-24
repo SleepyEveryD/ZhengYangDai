@@ -12,6 +12,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
 import { getCurrentRide,saveRideLocal } from '../services/rideStorage';
+import { rideRouteService } from '../services/reportService';
+import type { Ride } from "../types/ride";
+import type { RideStreet } from "../types/ride";
+
+
 
 
 /**
@@ -197,9 +202,10 @@ export default function RideRecording() {
     );
   };
 
-  const handleStop = () => {
-    const currentRide = getCurrentRide();
-    if (!currentRide) return;
+  const handleStop = async () => {
+    const storedRide = getCurrentRide();
+    if (!storedRide) return;
+    const baseRide: Ride = { ...storedRide };
 
     const safeDuration = Math.max(duration, 1);
     const avgSpeed = distance / (safeDuration / 3600);
@@ -220,29 +226,46 @@ export default function RideRecording() {
         [9.19060, 45.46560]
       ]
     };
+    const routeGeoJson=routeGeoJsonMock;
+    if (!routeGeoJson) return;
+    console.log("RideRecording>> routeGeoJson is not null");
+    
+    let streets: RideStreet[] = [];
+    try {
+      streets =
+        await rideRouteService.resolveStreetsFromRouteGeoJson(routeGeoJson);
+        console.log("street =", streets);
+        
+    } catch (err) {
+      console.error(
+        "RideRecording>> resolve streets failed",
+        err
+      );
+    }
     const rideForlocalStorage ={
-      ...currentRide,
+      ...baseRide,
       endedAt: new Date(),
-      routeGeoJson: routeGeoJsonMock
+      routeGeoJson: routeGeoJson,
       //todo: 前端路径处理， 处理完赋值给routeGeoJson， 上面有mock数据做参考
+      streets,
     }
 
+  /*
+    retrive street name
+  */
     const updatedRide = {
-      ...currentRide,
-      routeGeoJson: routeGeoJsonMock,
-
-      endedAt: new Date(),
+      ...rideForlocalStorage,
       avgSpeed: Number(avgSpeed.toFixed(1)),
       date: new Date().toISOString(),
-      distance: parseFloat(distance.toFixed(2)),
+      distance: Number(distance.toFixed(2)),
       duration,
-      maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
-      // ✅ 核心：保证 confirm 页继续用 path
-      path: geoJsonToPath(routeGeoJsonMock),
+      maxSpeed: Number((speed * 1.5).toFixed(1)),
+      path: geoJsonToPath(rideForlocalStorage.routeGeoJson),
       issues: detectedIssues,
-      uploadStatus: "draft" as const,
-
+      uploadStatus: 'draft',
     };
+    
+
 
     saveRideLocal(rideForlocalStorage);
     navigate("/ride/confirm", { state: { ride: updatedRide } });

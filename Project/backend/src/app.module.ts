@@ -9,7 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TestModule } from './debug/debug.module';
 import {RideModule} from './rides/ride.module';
-import { ReportModule } from "./report/report.module.ts";
+import { ReportModule } from "./report/report.module";
 
 @Module({
   imports: [

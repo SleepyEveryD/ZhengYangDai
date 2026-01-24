@@ -1,6 +1,10 @@
 export type RideStreet = {
-    id: string;
-    name?: string;
-    city?: string;
-  };
-  
+  externalId: string;        // Google / external street id
+  name: string;
+  city: string | null;
+  country: string | null;
+  positions: {
+    index: number;
+    coord: [number, number]; // [lng, lat]
+  }[];
+};
