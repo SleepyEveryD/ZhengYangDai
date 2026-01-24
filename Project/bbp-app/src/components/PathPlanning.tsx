@@ -20,25 +20,14 @@ export default function PathPlanning({ user }: PathPlanningProps) {
 
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
-  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
-  const [showDestSuggestions, setShowDestSuggestions] = useState(false);
 
-  const suggestions = [
-    "Beijing Chaoyang District CBD",
-    "Beijing Haidian District Zhongguancun",
-    "Beijing Dongcheng District Tiananmen",
-    "Beijing Xicheng District Xidan",
-  ];
+  const handleSearch = () => {
+    if (!origin || !destination) return;
 
-const handleSearch = () => {
-  if (origin && destination) {
     navigate(
       `/path/results?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`
     );
-  }
-};
-
-
+  };
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -55,139 +44,78 @@ const handleSearch = () => {
         <h2 className="text-gray-900">Plan Route</h2>
       </div>
 
-      {/* Input Fields */}
-      <div className="flex-1 p-4 space-y-4">
-        {/* Origin */}
-        <div className="relative">
-          <div className="flex items-start gap-3">
-            <div className="mt-3">
-              <MapPinIcon className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <label className="text-gray-600 mb-2 block">Start Point</label>
-              <Input
-                placeholder="Enter start address..."
-                value={origin}
-                onChange={(e) => {
-                  setOrigin(e.target.value);
-                  setShowOriginSuggestions(true);
-                }}
-                onFocus={() => setShowOriginSuggestions(true)}
-                className="h-12"
-              />
-              {showOriginSuggestions && origin && (
-                <div className="absolute left-8 right-0 mt-2 bg-white border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                  {suggestions
-                    .filter((s) => s.includes(origin))
-                    .map((suggestion, index) => (
-                      <div
-                        key={index}
-                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                        onClick={() => {
-                          setOrigin(suggestion);
-                          setShowOriginSuggestions(false);
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPinIcon className="w-4 h-4 text-gray-400" />
-                          <span>{suggestion}</span>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+      {/* Content */}
+      <div className="flex-1 p-4 space-y-6">
+        {/* Start Point */}
+        <div className="flex items-start gap-3">
+          <div className="mt-3">
+            <MapPinIcon className="w-5 h-5 text-green-600" />
+          </div>
+          <div className="flex-1">
+            <label className="text-gray-600 mb-2 block">Start Point</label>
+            <Input
+              placeholder="Enter start address or use current location"
+              value={origin}
+              onChange={(e) => setOrigin(e.target.value)}
+              className="h-12"
+            />
           </div>
         </div>
 
         {/* Destination */}
-        <div className="relative">
-          <div className="flex items-start gap-3">
-            <div className="mt-3">
-              <TargetIcon className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="flex-1">
-              <label className="text-gray-600 mb-2 block">Destination</label>
-              <Input
-                placeholder="Enter destination address..."
-                value={destination}
-                onChange={(e) => {
-                  setDestination(e.target.value);
-                  setShowDestSuggestions(true);
-                }}
-                onFocus={() => setShowDestSuggestions(true)}
-                className="h-12"
-              />
-              {showDestSuggestions && destination && (
-                <div className="absolute left-8 right-0 mt-2 bg-white border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                  {suggestions
-                    .filter((s) => s.includes(destination))
-                    .map((suggestion, index) => (
-                      <div
-                        key={index}
-                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                        onClick={() => {
-                          setDestination(suggestion);
-                          setShowDestSuggestions(false);
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <TargetIcon className="w-4 h-4 text-gray-400" />
-                          <span>{suggestion}</span>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="mt-3">
+            <TargetIcon className="w-5 h-5 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <label className="text-gray-600 mb-2 block">Destination</label>
+            <Input
+              placeholder="Enter destination address..."
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              className="h-12"
+            />
           </div>
         </div>
 
-        {/* Quick Locations */}
-        <div className="pt-4">
-          <p className="text-gray-600 mb-3">Quick Locations</p>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              className="h-12 justify-start"
-              onClick={() => setOrigin("Current Location")}
-            >
-              <NavigationIcon className="w-4 h-4 mr-2" />
-              Current Location
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 justify-start"
-              onClick={() => setOrigin("Beijing Chaoyang District CBD")}
-            >
-              <MapPinIcon className="w-4 h-4 mr-2" />
-              Office
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 justify-start"
-              onClick={() =>
-                setDestination("Beijing Haidian District Zhongguancun")
-              }
-            >
-              <MapPinIcon className="w-4 h-4 mr-2" />
-              Home
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 justify-start"
-              onClick={() =>
-                setDestination("Beijing Dongcheng District Tiananmen")
-              }
-            >
-              <MapPinIcon className="w-4 h-4 mr-2" />
-              Gym
-            </Button>
-          </div>
+        {/* Current Location */}
+        <div className="pt-2">
+         <Button
+  variant="outline"
+  className="h-12 justify-start w-full"
+  onClick={() => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+
+        // 用「lat,lng」作为 origin
+        setOrigin(`${lat},${lng}`);
+      },
+      (err) => {
+        console.error("location error", err);
+        alert("Failed to get current location");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    );
+  }}
+>
+  <NavigationIcon className="w-4 h-4 mr-2" />
+  Use Current Location
+</Button>
+
         </div>
       </div>
 
-      {/* Search Button */}
+      {/* Bottom */}
       <div className="p-4 border-t space-y-3">
         <Button
           className="w-full h-14 bg-green-600 hover:bg-green-700"
@@ -198,7 +126,6 @@ const handleSearch = () => {
           Search Route
         </Button>
 
-        {/* Guest Login Prompt */}
         {!user && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
             <p className="text-blue-900 mb-2">

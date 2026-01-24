@@ -39,9 +39,6 @@ type RouteDetail = {
   condition: string;
   path: [number, number][];
   segments: Segment[];
-
-  // ⬇️ 下面两个后端可能没有
-  elevation?: number[];
   comments?: Comment[];
 };
 
@@ -76,7 +73,6 @@ export default function PathDetail({ user }: PathDetailProps) {
   }
 
   /* ---------- 安全默认值（⭐ 解决白屏核心） ---------- */
-  const elevation = route.elevation ?? [];
   const comments = route.comments ?? [];
 
   /* ---------- helpers ---------- */
@@ -175,35 +171,6 @@ export default function PathDetail({ user }: PathDetailProps) {
               </div>
             </CardContent>
           </Card>
-
-          {/* Elevation */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUpIcon className="w-5 h-5 text-gray-600" />
-              <span className="text-gray-900">Elevation Change</span>
-            </div>
-
-            <Card>
-              <CardContent className="p-4">
-                {elevation.length === 0 ? (
-                  <p className="text-gray-500 text-center">
-                    No elevation data available
-                  </p>
-                ) : (
-                  <div className="h-32 flex items-end justify-between gap-1">
-                    {elevation.map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 bg-green-500 rounded-t"
-                        style={{ height: `${Math.min(h, 30) * 3}%` }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Segments */}
           <div>
             <div className="flex items-center gap-2 mb-3">

@@ -87,6 +87,8 @@ export default function MapView({
   const selectedSegmentPolylineRef = useRef<any>(null);
   const issueMarkersRef = useRef<any[]>([]);
   const clickListenerRef = useRef<any>(null);
+  const userLocationMarkerRef = useRef<any>(null);
+
 
  const fallbackCenter = useMemo(() => {
   if (currentLocation && isValidLatLng(currentLocation[0], currentLocation[1])) {
@@ -266,6 +268,35 @@ export default function MapView({
       }
     };
   }, [mapReady, onMapClick]);
+  /* ---------- Draw current user location ---------- */
+useEffect(() => {
+  if (!mapReady || !mapRef.current || !window.google?.maps) return;
+  if (!currentLocation) return;
+
+  const google = window.google;
+  const [lat, lng] = currentLocation;
+
+  // 如果已经有 marker，先移除
+  if (userLocationMarkerRef.current) {
+    userLocationMarkerRef.current.setMap(null);
+    userLocationMarkerRef.current = null;
+  }
+
+  userLocationMarkerRef.current = new google.maps.Marker({
+    position: { lat, lng },
+    map: mapRef.current,
+    zIndex: 999, // 永远在最上面
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      fillColor: "#2563eb", // 蓝色（像导航）
+      fillOpacity: 1,
+      strokeColor: "#ffffff",
+      strokeWeight: 3,
+    },
+  });
+}, [mapReady, currentLocation]);
+
 
  return (
   <div className="w-full h-full relative">
