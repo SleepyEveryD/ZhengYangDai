@@ -224,7 +224,6 @@ export default function RideRecording() {
       date: new Date().toISOString(),
       distance: parseFloat(distance.toFixed(2)),
       duration,
-      avgSpeed: parseFloat(avgSpeed.toFixed(1)),
       maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
       // ✅ 核心：保证 confirm 页继续用 path
       path: geoJsonToPath(routeGeoJsonMock),
