@@ -6,6 +6,7 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
 enum RideStatus {
   DRAFT
   CONFIRMED
@@ -26,87 +27,64 @@ enum IssueType {
   CONSTRUCTION
   OTHER
 }
+
 model Ride {
   id              String     @id @default(uuid())
   userId          String
-
-  // Prisma 写入
   routeGeoJson    Json?
-
-  // DB trigger 生成
-  routeGeometry   Unsupported("geography(LineString, 4326)")
-
+  routeGeometry   Unsupported("geography(LineString, 4326)")?  // 添加 ?
   status          RideStatus @default(DRAFT)
-
   startedAt       DateTime
   endedAt         DateTime
   createdAt       DateTime   @default(now())
-
   streets         RideStreet[]
-
   @@index([userId])
 }
+
 model Street {
   id            String   @id @default(uuid())
-
-  // 外部道路唯一标识（核心）
-  externalId    String   // e.g. mapbox:road:xxx / osm:way:xxx
-
-  // 展示字段
-  name          String?  // Via Roma
-  city          String?  // Rome
-  country       String?  // IT
-
-  // 可选：街道中心线
-  geometry      Unsupported("geography(LineString, 4326)")
-
+  externalId    String   @unique
+  name          String?
+  city          String?
+  country       String?
+  geometry      Unsupported("geography(LineString, 4326)")?  // 添加 ?
   createdAt     DateTime @default(now())
-
   rides         RideStreet[]
   reports       StreetReport[]
   aggregation   StreetAggregation?
-
   @@index([externalId])
   @@index([name])
   @@index([city, name])
 }
+
 model RideStreet {
   rideId     String
   streetId   String
-
-  // 可选：骑行覆盖比例（MVP 可不算）
   coverage   Float?
-
   ride       Ride   @relation(fields: [rideId], references: [id], onDelete: Cascade)
   street     Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
-
   @@id([rideId, streetId])
   @@index([streetId])
 }
+
 model StreetReport {
   id             String        @id @default(uuid())
   userId         String
   streetId       String
-
   roadCondition  RoadCondition
   issueType      IssueType     @default(NONE)
   notes          String?
-
   createdAt      DateTime      @default(now())
-
   street         Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
-
   @@unique([userId, streetId])
   @@index([streetId])
 }
+
 model StreetAggregation {
   streetId        String   @id
-
   finalCondition  RoadCondition
   agreementScore  Float
   issueSummary    Json?
-
   lastUpdatedAt   DateTime @updatedAt
-
   street          Street @relation(fields: [streetId], references: [id], onDelete: Cascade)
 }
