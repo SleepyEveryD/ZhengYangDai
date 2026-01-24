@@ -2,8 +2,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./components/Login";
-import MapExplorer from "./components/MapExplorer";
-import MapPage from "./components/MapPage"
 import PathPlanning from "./components/PathPlanning";
 import PathResults from "./components/PathResults";
 import PathDetail from "./components/PathDetail";
@@ -14,8 +12,7 @@ import Profile from "./components/Profile";
 import RideHistory from "./components/RideHistory";
 import RideDetail from "./components/RideDetail";
 import ReportHistory from "./components/ReportHistory";
-//import TripHistory from "./components/TripHistory";
-//import TripSavePage from "./components/TripSave";
+import MapPage from "./components/MapPage";
 
 export function AppRoutes() {
   return (

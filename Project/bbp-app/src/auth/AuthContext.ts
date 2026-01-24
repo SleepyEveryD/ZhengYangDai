@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { User } from "../types/user";
 
+
 export type AuthState = {
   user: User | null;
   loading: boolean;

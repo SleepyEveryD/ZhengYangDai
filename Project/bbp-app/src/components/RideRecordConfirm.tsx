@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { ArrowLeftIcon, CheckCircleIcon, XIcon, SaveIcon, ShareIcon, AlertCircleIcon, MapPinIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -6,24 +6,17 @@ import { Badge } from './ui/badge';
 import MapView from './MapView';
 import type { Ride } from '../types/ride';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useNavigate,useLocation } from 'react-router-dom';
-import type { User } from "../types/user";
 import { saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
-
-
-
-type RideRecordConfirmProps = {
-  user: User;
-  setUser: (user: User) => void;
-};
-
+import { useAuth } from '../auth/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 type RoadConditionSegment = {
   id: string;
@@ -33,18 +26,17 @@ type RoadConditionSegment = {
   pathCoordinates: [number, number][];
 };
 
-export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmProps) {
+export default function RideRecordConfirm() {
+  const { user } = useAuth();
+
+  if (!user) {
+    // 没登录就回登录页（或给 guest 模式）
+    return <Navigate to="/login" replace />;
+  }
+
   const navigate = useNavigate();
   const location = useLocation();
   const ride: Ride | null = location.state?.ride ?? null;
-
-  if (!ride) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Ride record not found</p>
-      </div>
-    );
-  }
 
   const [mapMode, setMapMode] = useState<"none" | "issue" | "segment">("none");
 
@@ -81,27 +73,6 @@ export default function RideRecordConfirm({ user, setUser }: RideRecordConfirmPr
   
   // Current step in the workflow
   const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
-
-const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-
-useEffect(() => {
-  if (!navigator.geolocation) {
-    console.warn("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-    },
-    (err) => {
-      console.warn("Geolocation error:", err.message);
-      // 用户拒绝也没关系，我们就走 ride.path / fallback
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
-  );
-}, []);
-
 
   if (!ride) {
     return (
@@ -155,11 +126,6 @@ useEffect(() => {
         return 'Unknown';
     }
   };
-
-  const mapCenter: [number, number] =
-  userLocation ??
-  (ride?.path?.length ? ride.path[ride.path.length - 1] : [39.9042, 116.4074]);
-
 
   const handleMapClick = (latLng: [number, number]) => {
   if (!ride?.path?.length) return;
@@ -227,6 +193,8 @@ useEffect(() => {
       confirmedAt: new Date().toISOString(),
     };
   
+    console.log("SAVE CLICKED: passed validation");
+    console.log("finalRide", finalRide);
     saveRideLocal(finalRide);
   
     toast.success('Ride saved locally');
@@ -459,12 +427,12 @@ useEffect(() => {
         {/* Map */}
         <div className="h-64">
           <MapView
-            currentLocation={mapCenter}
             userPath={ride.path}
             issues={issues.map((issue) => ({
               location: issue.location,
               type: issue.type,
             }))}
+            onMapClick={mapMode !== "none" ? handleMapClick : undefined}
           />
         </div>
 
@@ -721,7 +689,6 @@ useEffect(() => {
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
                   <MapView
-                    currentLocation={mapCenter}
                     userPath={ride.path}
                     issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
                     onMapClick={mapMode === "issue" ? handleMapClick : undefined}
@@ -908,7 +875,6 @@ useEffect(() => {
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
                   <MapView
-                    currentLocation={mapCenter}
                     userPath={ride.path}
                     selectedSegment={{
                       startIndex: segmentStartPoint,

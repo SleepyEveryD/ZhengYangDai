@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
@@ -12,36 +12,137 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
 
+/**
+ * TRACK_MODE:
+ * - "real": 用真实 GPS 轨迹（watchPosition）
+ * - "demo": 用真实定位作为 base，然后附近随机抖动（演示用）
+ */
+const TRACK_MODE: "real" | "demo" = "demo";
+
+// demo 抖动幅度（单位：度）
+// 0.001 ≈ 111m（纬度方向），demo 用 0.0003~0.001 比较舒服
+const DEMO_JITTER = 0.0006;
+
 export default function RideRecording() {
   const navigate = useNavigate();
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
+
   const [path, setPath] = useState<[number, number][]>([]);
   const [detectedIssues, setDetectedIssues] = useState<Issue[]>([]);
   const [showIssueAlert, setShowIssueAlert] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
+  // 真实定位 base（用于 demo/兜底）
+  const baseRef = useRef<[number, number] | null>(null);
+
+  // 让 issue 生成也跟着 base
+  const getBase = useMemo(() => {
+    return () => baseRef.current ?? [45.4642, 9.19]; // Milan fallback
+  }, []);
+
+  // 1) 初始化：获取一次定位，确保 path 第一帧不是北京
+  useEffect(() => {
+    let cancelled = false;
+
+    const fallback: [number, number] = [45.4642, 9.19]; // Milan
+
+    if (!("geolocation" in navigator)) {
+      baseRef.current = fallback;
+      setPath([fallback]);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        baseRef.current = p;
+        setPath([p]); // ✅ 第一帧就定位到当前城市
+      },
+      () => {
+        if (cancelled) return;
+        baseRef.current = fallback;
+        setPath([fallback]);
+        toast.error("Location permission denied, using demo location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 2) 计时/里程/速度（你原来的 demo 逻辑）
   useEffect(() => {
     const timer = setInterval(() => {
       setDuration((prev) => prev + 1);
+
+      // demo 距离累加：每秒 0.01km = 10m/s（只是示意）
       setDistance((prev) => prev + 0.01);
+
+      // demo 速度
       setSpeed(Math.random() * 15 + 10);
+    }, 1000);
 
-      setPath((prev) => [
-        ...prev,
-        [39.9042 + Math.random() * 0.01, 116.4074 + Math.random() * 0.01],
-      ]);
+    return () => clearInterval(timer);
+  }, []);
 
+  // 3) 轨迹录制：REAL / DEMO 二选一
+  useEffect(() => {
+    if (TRACK_MODE === "real") {
+      // --- REAL GPS ---
+      if (!("geolocation" in navigator)) return;
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          baseRef.current = p; // 顺便更新 base，给 issue 用
+          setPath((prev) => {
+            if (!prev.length) return [p];
+            const last = prev[prev.length - 1];
+
+            // 防抖：点太密的话可过滤（这里简单过滤重复点）
+            if (last[0] === p[0] && last[1] === p[1]) return prev;
+            return [...prev, p].slice(-3000); // 防止无限增长
+          });
+        },
+        (err) => {
+          console.error(err);
+          toast.error("GPS tracking failed, switching to demo.");
+        },
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+      );
+
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+
+    // --- DEMO ---
+    const interval = setInterval(() => {
+      const base = getBase();
+      const [bLat, bLng] = base;
+
+      const next: [number, number] = [
+        bLat + (Math.random() - 0.5) * DEMO_JITTER,
+        bLng + (Math.random() - 0.5) * DEMO_JITTER,
+      ];
+
+      setPath((prev) => [...prev, next].slice(-3000));
+
+      // issue demo：概率触发，地点跟 base 走
       if (Math.random() < 0.05) {
+        const issueLoc: [number, number] = [
+          bLat + (Math.random() - 0.5) * DEMO_JITTER,
+          bLng + (Math.random() - 0.5) * DEMO_JITTER,
+        ];
+
         const newIssue: Issue = {
           id: `issue-${Date.now()}`,
           type: "pothole",
-          location: [
-            39.9042 + Math.random() * 0.01,
-            116.4074 + Math.random() * 0.01,
-          ],
+          location: issueLoc,
           severity: "medium",
           status: "pending",
           date: new Date().toISOString(),
@@ -58,8 +159,8 @@ export default function RideRecording() {
       }
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(interval);
+  }, [getBase]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -87,21 +188,26 @@ export default function RideRecording() {
   };
 
   const handleStop = () => {
+    // ✅ 防止 duration=0 导致 avgSpeed Infinity
+    const safeDuration = Math.max(duration, 1);
+    const avgSpeed = distance / (safeDuration / 3600);
+
     const ride = {
       id: `ride-${Date.now()}`,
       date: new Date().toISOString(),
       distance: parseFloat(distance.toFixed(2)),
       duration,
-      avgSpeed: parseFloat((distance / (duration / 3600)).toFixed(1)),
+      avgSpeed: parseFloat(avgSpeed.toFixed(1)),
       maxSpeed: parseFloat((speed * 1.5).toFixed(1)),
-      path,
+      path, // ✅ 此时 path 已经是米兰/真实轨迹
       issues: detectedIssues,
-      uploadStatus: 'draft'
+      uploadStatus: "draft" as const,
     };
 
-    navigate("/ride/confirm", {
-      state: { ride },
-    });
+    // 可选：调试一下
+    // console.log("ride.path first/last", ride.path[0], ride.path[ride.path.length - 1]);
+
+    navigate("/ride/confirm", { state: { ride } });
   };
 
   return (
@@ -110,11 +216,12 @@ export default function RideRecording() {
       <div className="flex-1 relative">
         <MapView
           userPath={path}
-          currentLocation={path[path.length - 1]}
+          currentLocation={path.length ? path[path.length - 1] : undefined}
           issues={detectedIssues.map((issue) => ({
             location: issue.location,
             type: issue.type,
           }))}
+          followUser // ✅ 录制页跟随
         />
       </div>
 
@@ -130,15 +237,11 @@ export default function RideRecording() {
             <p className="text-gray-600">Duration</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">
-              {distance.toFixed(2)} km
-            </p>
+            <p className="text-gray-900 mb-1">{distance.toFixed(2)} km</p>
             <p className="text-gray-600">Distance</p>
           </div>
           <div>
-            <p className="text-gray-900 mb-1">
-              {speed.toFixed(1)} km/h
-            </p>
+            <p className="text-gray-900 mb-1">{speed.toFixed(1)} km/h</p>
             <p className="text-gray-600">Speed</p>
           </div>
         </div>
