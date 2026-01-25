@@ -103,6 +103,7 @@ export default function MapView({
   }, [currentLocation, userPath]);
 
   const didSnapToUserRef = useRef(false);
+  console.log("google maps loaded?", window.google?.maps);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

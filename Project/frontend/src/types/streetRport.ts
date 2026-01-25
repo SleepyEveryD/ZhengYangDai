@@ -1,9 +1,12 @@
+import type { RouteCondition } from "./route";
+import type { IssueType } from "./issue";
+
 export type StreetReport = {
     id: string;
     userId: string;
     streetId: string;
   
-    roadCondition: RoadCondition;
+    roadCondition: RouteCondition;
     issueType: IssueType;
   
     notes?: string;
