@@ -1,4 +1,5 @@
 import type { Issue } from './issue';
+import type { RideStreet } from "./rideStreet";
 
 export type RideStatus = "Draft"| "CONFIRMED"
 

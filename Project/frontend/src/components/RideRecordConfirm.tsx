@@ -17,12 +17,15 @@ import { saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
 import { useAuth } from '../auth/AuthContext';
 import { Navigate } from 'react-router-dom';
-enum RoadCondition {
-  EXCELLENT = 'EXCELLENT',
-  GOOD = 'GOOD',
-  FAIR = 'FAIR',
-  NEED_REPAIR = 'NEED_REPAIR',
-}
+
+const RoadCondition = {
+  EXCELLENT: "EXCELLENT",
+  GOOD: "GOOD",
+  FAIR: "FAIR",
+  NEED_REPAIR: "NEED_REPAIR",
+} as const;
+
+type RoadCondition = (typeof RoadCondition)[keyof typeof RoadCondition];
 
 type RoadConditionSegment = {
   id: string;
@@ -261,6 +264,15 @@ export default function RideRecordConfirm() {
       toast.error('Please confirm or ignore all pending issues');
       return;
     }
+
+    // 必须先点过 “Save Reports”
+    if (!conditionsConfirmed) {
+      toast.error('Please save road condition reports first');
+      setShowReportDialog(true);
+      setReportTab('conditions');
+      return;
+    }
+
     if (roadConditionSegments.length === 0) {
       toast.error('Please add at least one road condition segment before publishing');
       setShowReportDialog(true);
@@ -741,11 +753,7 @@ export default function RideRecordConfirm() {
                     issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
                     onMapClick={mapMode === "issue" ? handleMapClick : undefined}
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">
-                      Click map to add issue location
-                    </p>
-                  </div>
+                  
                 </div>
               </div>
 
@@ -931,155 +939,12 @@ export default function RideRecordConfirm() {
                   selectedSegment={highlightSegment ?? undefined}
                 />
 
-
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-                    <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">
-                      Select route segment to rate
-                    </p>
-                  </div>
                 </div>
               </div>
 
-              {!isSelectingSegment && (
-                <Button
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => {
-                    setIsSelectingSegment(true);
-                    setMapMode("segment");
-                    setEditingSegmentId(null);
-                    setSegmentStartPoint(null);
-                    setSegmentEndPoint(null);
-                  }}
-                >
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Add Road Segment
-                </Button>
-              )}
+              
 
-              {isSelectingSegment && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4 p-4 border-2 border-blue-600 rounded-lg bg-blue-50"
-                >
-                  <h4 className="text-gray-900 font-medium">
-                    {editingSegmentId ? 'Edit Segment' : 'New Segment'}
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Start Point</Label>
-                        <Select
-                          value={segmentStartPoint === null ? "" : String(segmentStartPoint)}
-                          onValueChange={(v) => setSegmentStartPoint(Number(v))}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Select start" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ride.path.map((_, index) => (
-                              <SelectItem key={index} value={index.toString()}>
-                                Point {index}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>End Point</Label>
-                        <Select
-                          value={segmentEndPoint === null ? "" : String(segmentEndPoint)}
-                          onValueChange={(v) => setSegmentEndPoint(Number(v))}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Select end" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ride.path.map((_, index) => (
-                              <SelectItem key={index} value={index.toString()} disabled={segmentStartPoint !== null && index <= segmentStartPoint}>
-                                Point {index}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Road Condition</Label>
-                      <Select value={segmentCondition} onValueChange={(v: any) => setSegmentCondition(v)}>
-                        <SelectTrigger className="h-12">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="excellent">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-green-500" />
-                              Excellent
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="good">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-blue-500" />
-                              Good
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="fair">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                              Fair
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="poor">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-red-500" />
-                              Needs Repair
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {segmentStartPoint !== null && segmentEndPoint !== null && (
-                      <Card className="bg-white">
-                        <CardContent className="p-3">
-                          <p className="text-sm text-gray-600">
-                            Selected: Points {segmentStartPoint} to {segmentEndPoint} ({segmentEndPoint - segmentStartPoint + 1} points)
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-12"
-                        onClick={() => {
-                          setIsSelectingSegment(false);
-                          setMapMode("none");
-                          setEditingSegmentId(null);
-                          setSegmentStartPoint(null);
-                          setSegmentEndPoint(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
-                        disabled={
-                          segmentStartPoint === null ||
-                          segmentEndPoint === null ||
-                          segmentStartPoint === segmentEndPoint
-                        }
-                        onClick={editingSegmentId ? handleUpdateSegment : handleAddSegment}
-                      >
-                        {editingSegmentId ? 'Update' : 'Add'} Segment
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+        
 
               {/* List of Segments */}
               {roadConditionSegments.length > 0 && (
