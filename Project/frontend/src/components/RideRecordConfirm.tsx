@@ -136,7 +136,6 @@ export default function RideRecordConfirm() {
   const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
   
 
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -248,8 +247,8 @@ export default function RideRecordConfirm() {
       confirmedAt: new Date().toISOString(),
     };
   
-    console.log("SAVE CLICKED: passed validation");
-    console.log("finalRide", finalRide);
+    //console.log("SAVE CLICKED: passed validation");
+    //console.log("finalRide", finalRide);
     saveRideLocal(finalRide);
   
     toast.success('Ride saved locally');
@@ -314,6 +313,8 @@ export default function RideRecordConfirm() {
     setNewIssueDescription('');
     setIsAddingIssue(false);
     toast.success('Issue added successfully');
+    console.log("RideRecordingConfirm>> issue: ", issues);
+    
   };
 
   // Edit existing issue
