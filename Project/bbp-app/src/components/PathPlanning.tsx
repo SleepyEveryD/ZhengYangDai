@@ -1,27 +1,44 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import {
-  ArrowLeftIcon,
-  MapPinIcon,
-  TargetIcon,
-  NavigationIcon,
-  LogInIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, MapPinIcon, TargetIcon, NavigationIcon } from "lucide-react";
 import type { User } from "../types/user";
 
-type PathPlanningProps = {
-  user?: User;
-};
+type PathPlanningProps = { user?: User };
 
 export default function PathPlanning({ user }: PathPlanningProps) {
   const navigate = useNavigate();
 
-  const [origin, setOrigin] = useState("");
+  const [origin, setOrigin] = useState("");              // 文本（可选）
+  const [originCoords, setOriginCoords] = useState<[number, number] | null>(null); // 坐标（关键）
   const [destination, setDestination] = useState("");
 
+  // ✅ 页面加载就定位到用户（米兰）
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOriginCoords([pos.coords.latitude, pos.coords.longitude]);
+        setOrigin("Current Location");
+      },
+      (err) => {
+        console.warn("geolocation error", err);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+
   const handleSearch = () => {
+    if (!destination) return;
+
+    navigate("/path/results", {
+      state: {
+        originText: origin,          // 如果你想支持用户自己输入起点
+        originCoords: originCoords,               // ✅ 有坐标就优先用坐标
+        destinationText: destination, // 例如 "Milano Centrale"
+      },
+    });
     if (!origin || !destination) return;
 
     navigate(
@@ -31,14 +48,8 @@ export default function PathPlanning({ user }: PathPlanningProps) {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/map")}
-          className="h-10 w-10"
-        >
+        <Button variant="ghost" size="icon" onClick={() => navigate("/map")} className="h-10 w-10">
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
         <h2 className="text-gray-900">Plan Route</h2>
@@ -120,7 +131,7 @@ export default function PathPlanning({ user }: PathPlanningProps) {
         <Button
           className="w-full h-14 bg-green-600 hover:bg-green-700"
           onClick={handleSearch}
-          disabled={!origin || !destination}
+          disabled={!destination}
         >
           <NavigationIcon className="w-5 h-5 mr-2" />
           Search Route

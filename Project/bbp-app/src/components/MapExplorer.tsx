@@ -72,7 +72,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           {/* Search Bar */}
           <div
             className="flex-1 bg-white rounded-full shadow-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow"
-            // ✅ 修正：你的路由是 /path/planning
+            // 修正：你的路由是 /path/planning
             onClick={() => navigate("/path/planning")}
           >
             <SearchIcon className="w-5 h-5 text-gray-400" />
@@ -85,7 +85,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           {user ? (
             <div
               className="bg-white rounded-full shadow-lg p-2 cursor-pointer hover:shadow-xl transition-shadow"
-              // ✅ 修正：跳 profile 用绝对路径最稳
+              // 修正：跳 profile 用绝对路径最稳
               onClick={() => navigate("/profile")}
             >
               <Avatar className="w-8 h-8">

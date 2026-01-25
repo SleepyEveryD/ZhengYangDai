@@ -1,5 +1,4 @@
-// src/components/MapView.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /* ================= Utils ================= */
 function isValidLatLng(lat: any, lng: any) {
@@ -26,6 +25,26 @@ type Path = {
 type MapViewProps = {
   paths: Path[];
   currentLocation?: [number, number];
+  routeRequest?: {
+    origin: string | { lat: number; lng: number };
+    destination: string | { lat: number; lng: number };
+    travelMode?: "BICYCLING" | "WALKING" | "DRIVING";
+    alternatives?: boolean; // 默认 true
+    /** 只显示一条：你可以传 "shortest" */
+    pick?: "shortest" | "first";
+  };
+
+  onRoutesReady?: (payload: {
+    routes: Array<{
+      index: number;
+      summary?: string;
+      distanceKm: number;
+      durationMin: number;
+      path: [number, number][];
+    }>;
+    pickedIndex: number;
+  }) => void;
+
   userPath?: [number, number][];
   issues?: IssueMarker[];
   onMapClick?: (latLng: [number, number]) => void;
@@ -33,6 +52,9 @@ type MapViewProps = {
     startIndex: number | null;
     endIndex: number | null;
   };
+
+  /** 录制页：跟随定位；确认页：不跟随（避免抢拖动） */
+  followUser?: boolean;
    weather?: {
     weather: string;
     temperature: number;
@@ -74,10 +96,13 @@ export default function MapView({
   issues = [],
   onMapClick,
   selectedSegment,
+  followUser = false,
   weather,
 }: MapViewProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const userMarkerRef = useRef<any>(null);
 
   const [mapReady, setMapReady] = useState(false);
 
@@ -87,18 +112,29 @@ export default function MapView({
   const selectedSegmentPolylineRef = useRef<any>(null);
   const issueMarkersRef = useRef<any[]>([]);
   const clickListenerRef = useRef<any>(null);
+
+  // 只 fitBounds 一次（避免每次 path 更新都缩放）
+  const didFitBoundsRef = useRef(false);
   const userLocationMarkerRef = useRef<any>(null);
 
 
- const fallbackCenter = useMemo(() => {
-  if (currentLocation && isValidLatLng(currentLocation[0], currentLocation[1])) {
-    return { lat: currentLocation[0], lng: currentLocation[1] };
-  }
+  const fallbackCenter = useMemo(() => {
+    if (currentLocation) return { lat: currentLocation[0], lng: currentLocation[1] };
+    if (userPath.length) return { lat: userPath[userPath.length - 1][0], lng: userPath[userPath.length - 1][1] };
+    return { lat: 45.4642, lng: 9.19 }; // ✅ 不要默认北京
+  }, [currentLocation, userPath]);
 
-  // 🇮🇹 Milan（固定默认）
-  return { lat: 45.4642, lng: 9.19 };
-}, [currentLocation]);
+  const didSnapToUserRef = useRef(false);
 
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    if (!currentLocation) return;
+    if (didSnapToUserRef.current) return;
+
+    mapRef.current.setCenter({ lat: currentLocation[0], lng: currentLocation[1] });
+    mapRef.current.setZoom(16);
+    didSnapToUserRef.current = true;
+  }, [mapReady, currentLocation]);
 
   /* ---------- Init map ---------- */
   useEffect(() => {
@@ -129,11 +165,82 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- Update center ---------- */
+  /* ---------- 绑定点击事件 ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    const google = window.google;
+
+    if (clickListenerRef.current) {
+      google.maps.event.removeListener(clickListenerRef.current);
+      clickListenerRef.current = null;
+    }
+
+    if (onMapClick) {
+      clickListenerRef.current = mapRef.current.addListener("click", (e: any) => {
+        onMapClick([e.latLng.lat(), e.latLng.lng()]);
+      });
+    }
+
+    return () => {
+      if (clickListenerRef.current) {
+        google.maps.event.removeListener(clickListenerRef.current);
+        clickListenerRef.current = null;
+      }
+    };
+  }, [mapReady, onMapClick]);
+
+  /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    if (didFitBoundsRef.current) return;
+    if (userPath.length < 2) return;
+
+    const google = window.google;
+    const bounds = new google.maps.LatLngBounds();
+    userPath.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
+    mapRef.current.fitBounds(bounds);
+    didFitBoundsRef.current = true;
+  }, [mapReady, userPath]);
+
+  /* ---------- 更新中心点（仅在 followUser=true 时跟随） ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
+    if (!followUser) return;
+
     mapRef.current.setCenter(fallbackCenter);
   }, [mapReady, fallbackCenter]);
+
+  /* ---------- 当前用户位置 marker ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    if (!currentLocation) return;
+
+    const google = window.google;
+    const pos = { lat: currentLocation[0], lng: currentLocation[1] };
+
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new google.maps.Marker({
+        position: pos,
+        map: mapRef.current,
+        // ✅ 一个简单的“蓝点”样式
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7,
+          fillOpacity: 1,
+          fillColor: "#2563eb",    // 蓝色
+          strokeOpacity: 1,
+          strokeColor: "#ffffff",  // 白边
+          strokeWeight: 2,
+        },
+        zIndex: 9999,
+        title: "You are here",
+      });
+    } else {
+      userMarkerRef.current.setPosition(pos);
+      userMarkerRef.current.setMap(mapRef.current);
+    }
+  }, [mapReady, currentLocation]);
+
 
   /* ================= Draw backend routes（⭐核心⭐） ================= */
   const ROUTE_COLORS = [

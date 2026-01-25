@@ -75,8 +75,6 @@ useEffect(() => {
       return res.json();
     })
     .then((data) => {
-      console.log('🔥 routes from backend:', data);
-      console.log('🧪 first path point:', data[0]?.path?.[0]);
       setRoutes(data);
       setSelectedRouteId(data[0]?.id ?? null);
     })
