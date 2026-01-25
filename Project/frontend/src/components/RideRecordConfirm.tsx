@@ -17,15 +17,14 @@ import { saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
 import { useAuth } from '../auth/AuthContext';
 import { Navigate } from 'react-router-dom';
+import Weather from "./Weather";
 
-const RoadCondition = {
-  EXCELLENT: "EXCELLENT",
-  GOOD: "GOOD",
-  FAIR: "FAIR",
-  NEED_REPAIR: "NEED_REPAIR",
-} as const;
-
-type RoadCondition = (typeof RoadCondition)[keyof typeof RoadCondition];
+enum RoadCondition {
+  EXCELLENT = 'EXCELLENT',
+  GOOD = 'GOOD',
+  FAIR = 'FAIR',
+  NEED_REPAIR = 'NEED_REPAIR',
+}
 
 type RoadConditionSegment = {
   id: string;
@@ -475,6 +474,8 @@ export default function RideRecordConfirm() {
   };
 
   return (
+   
+
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b bg-white z-10">
@@ -488,6 +489,7 @@ export default function RideRecordConfirm() {
         </Button>
         <h2 className="text-gray-900">Confirm Ride Data</h2>
       </div>
+       
 
       <div className="flex-1 overflow-y-auto">
         {/* Map */}
@@ -527,7 +529,9 @@ export default function RideRecordConfirm() {
               </div>
             </CardContent>
           </Card>
-
+          <div className="mb-4">
+            <Weather/>
+          </div>
           {/* Detected Issues */}
           {issues.length > 0 && (
             <div>
