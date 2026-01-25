@@ -1,69 +1,55 @@
-//Project/bbp-app/src/hooks/useRideUploader.ts
 import { useEffect } from 'react';
-import { getCurrentRide } from '../services/rideStorage';
-import api from "../lib/api"; 
-
+import api from '../lib/api';
+const STORAGE_KEY = 'current_ride';
 
 export function useRideUploader() {
   useEffect(() => {
-    function mapCondition(
-      c: 'excellent' | 'good' | 'fair' | 'poor'
-    ): 'EXCELLENT' | 'GOOD' | 'FAIR' | 'NEED_REPAIR' {
-      switch (c) {
-        case 'excellent': return 'EXCELLENT';
-        case 'good': return 'GOOD';
-        case 'fair': return 'FAIR';
-        default: return 'NEED_REPAIR';
-      }
-    }
-    
 
     const upload = async () => {
-      const ride = getCurrentRide();
-      console.log('📦 pending rides:', ride);
-   
-      try {
-        console.log('Uploading ride', ride.id, {
-          roadConditionSegments: ride.roadConditionSegments,
-        });
-        // 1️⃣ 保存 Draft Segments
-        await api.put(`/rides/${ride.id}`, {
-          segments: ride.roadConditionSegments.map((seg, index) => ({
-            orderIndex: index,
-        
-            geometry: {
-              type: "LineString",
-              coordinates: seg.pathCoordinates.map(
-                ([lat, lng]) => [lng, lat] // GeoJSON 必须 lng,lat
-              ),
-            },
-        
-            lengthM: seg.pathCoordinates.length * 50, // 你现在的 approx 逻辑
-        
-            report: {
-              roadCondition: mapCondition(seg.condition),
-              issueType: "NONE",
-            },
-          })),
-        });
-        
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        console.log('📭 no ride in localStorage');
+        return;
+      }
+      const ride = JSON.parse(raw);
+      // ✅ 1️⃣ 只处理 pending 的 ride
+      if (ride.uploadStatus !== 'pending') {
+        console.log('⏭️ skip upload, uploadStatus:', ride.uploadStatus);
+        return;
+      }
 
-        // 2️⃣ Confirm Ride
+      // ✅ 2️⃣ 构造后端 payload（显式排除 uploadStatus）
+      const { uploadStatus, ...ridePayload } = ride;
+
+      try {
+        console.log('⬆️ uploading full ride payload', ride.id);
+
+        // 3️⃣ 上传完整 ride（除了 uploadStatus）
+        await api.put(`/rides/${ride.id}`, ridePayload);
+
+        // 4️⃣ confirm（如果你的后端需要单独 confirm）
         await api.post(`/rides/${ride.id}/confirm`, {
           publish: ride.publish === true,
         });
 
-        // 3️⃣ 标记 uploaded
-        markRideUploaded(ride.id);
+        // ✅ 5️⃣ 上传成功 → 更新 localStorage 中的 uploadStatus
+        const updatedRide = {
+          ...ride,
+          uploadStatus: 'uploaded',
+        };
 
-        console.log('Uploaded ride', ride.id);
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(updatedRide)
+        );
+
+        console.log('✅ upload success, marked as uploaded');
+
       } catch (e) {
-        console.error('Upload failed', ride.id, e);
+        console.error('❌ upload failed', e);
       }
-      
     };
 
     upload();
   }, []);
 }
-
