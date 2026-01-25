@@ -13,10 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useNavigate,useLocation } from 'react-router-dom';
-import { saveRideLocal } from '../services/rideStorage';
+import { getCurrentRide,saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
 import { useAuth } from '../auth/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { mapUiIssueToRideIssue } from '../utils/issueMapper';
+
 enum RoadCondition {
   EXCELLENT = 'EXCELLENT',
   GOOD = 'GOOD',
@@ -115,7 +117,10 @@ export default function RideRecordConfirm() {
   const [conditionsConfirmed, setConditionsConfirmed] = useState(false);
 
 
-
+  useEffect(() => {
+    console.log('RideRecodConfirm>> issues updated:', issues);
+  }, [issues]);
+  
 
   useEffect(() => { segmentStartRef.current = segmentStartPoint; }, [segmentStartPoint]);
   useEffect(() => { segmentEndRef.current = segmentEndPoint; }, [segmentEndPoint]);
@@ -213,9 +218,8 @@ export default function RideRecordConfirm() {
   }
 };
 
-
-
   const handleConfirmIssue = (issueId: string) => {
+
     setIssues((prev) =>
       prev.map((issue) =>
         issue.id === issueId ? { ...issue, status: 'confirmed' as const } : issue
@@ -226,66 +230,56 @@ export default function RideRecordConfirm() {
   const handleIgnoreIssue = (issueId: string) => {
     setIssues((prev) => prev.filter((issue) => issue.id !== issueId));
   };
+  const storedRide = getCurrentRide();
+  type RideStatus = 'DRAFT' | 'CONFIRMED';
 
-  const handleSaveOnly = () => {
+  const saveRide = (status: RideStatus) => {
     if (issues.some(issue => issue.status === 'pending')) {
       toast.error('Please confirm or ignore all pending issues');
       return;
     }
-    if (roadConditionSegments.length === 0) {
-      toast.error('Please add at least one road condition segment');
-      setShowReportDialog(true);
-      setReportTab('conditions');
-      return;
-    }
-    
-    const finalRide = {
-      ...ride,
-      issues,
-      roadConditionSegments,
-      uploadStatus: 'pending', // 👈 关键
-      confirmedAt: new Date().toISOString(),
-    };
   
-    //console.log("SAVE CLICKED: passed validation");
-    //console.log("finalRide", finalRide);
-    saveRideLocal(finalRide);
-  
-    toast.success('Ride saved locally');
-    navigate('/map');
-  };
-  
-
-  const handleSaveAndPublish = () => {
-    if (issues.some(issue => issue.status === 'pending')) {
-      toast.error('Please confirm or ignore all pending issues');
-      return;
-    }
     if (roadConditionSegments.length === 0) {
       toast.error('Please add at least one road condition segment before publishing');
       setShowReportDialog(true);
       setReportTab('conditions');
       return;
     }
-    
   
     const confirmedIssues = issues.filter(i => i.status === 'confirmed');
+    const rideIssues = confirmedIssues.map(issue =>
+      mapUiIssueToRideIssue(issue, ride.streetId)
+    );
   
     const finalRide = {
-      ...ride,
-      issues,
-      roadConditionSegments,
+      ...storedRide,
+      rideIssues,
+      status,
       uploadStatus: 'pending',
       publish: true,
       confirmedAt: new Date().toISOString(),
     };
   
+    console.log('RideRecordConfirm>> finalRide', finalRide);
+  
     saveRideLocal(finalRide);
   
-    toast.success(`Saved & queued ${confirmedIssues.length} reports`);
+    toast.success(
+      status === 'DRAFT'
+        ? 'Ride saved locally'
+        : 'Ride saved and published'
+    );
     navigate('/map');
   };
   
+  const handleSaveOnly = () => {
+    saveRide('DRAFT');
+  };
+  
+  const handleSaveAndPublish = () => {
+    saveRide('CONFIRMED');
+  };
+
 
   const pendingIssues = issues.filter((issue) => issue.status === 'pending');
   const confirmedIssues = issues.filter((issue) => issue.status === 'confirmed');
@@ -313,7 +307,7 @@ export default function RideRecordConfirm() {
     setNewIssueDescription('');
     setIsAddingIssue(false);
     toast.success('Issue added successfully');
-    console.log("RideRecordingConfirm>> issue: ", issues);
+    //console.log("RideRecordingConfirm>> issue: ", issues);
     
   };
 
@@ -521,7 +515,7 @@ export default function RideRecordConfirm() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-gray-900">
-                  Detected Issues ({issues.length})
+                  Reported Issues ({issues.length})
                 </h3>
                 {pendingIssues.length > 0 && (
                   <Badge className="bg-orange-100 text-orange-800">
@@ -675,7 +669,7 @@ export default function RideRecordConfirm() {
           onClick={handleSaveOnly}
         >
           <SaveIcon className="w-5 h-5 mr-2" />
-          Save to Personal Record Only
+          Save only
         </Button>
         <Button
           className="w-full h-12 bg-green-600 hover:bg-green-700"
