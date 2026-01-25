@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   ArrowLeftIcon,
@@ -15,31 +14,33 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import MapView from "./MapView";
 import type { Route } from "../types/route";
 import type { User } from "../types/user";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-/**
- * ⚠️ 当前阶段说明：
- * - route 数据这里仍然是“页面级假数据 / 临时状态”
- * - 后续会从 store / API 获取
- */
 
-type PathDetailProps = {
-  user?: User;
-  routes?: Route[]; // 临时：用于从列表中查找
-};
-
-export default function PathDetail({ user, routes = [] }: PathDetailProps) {
+export default function PathDetail({ user }: { user?: User }) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
 
-  const route = routes.find((r) => r.id === id);
+  const route = location.state?.route as Route | undefined;
 
   if (!route) {
+    
     return (
       <div className="h-screen flex items-center justify-center">
         <p>Route not found</p>
       </div>
     );
   }
+  const safeRoute = {
+  ...route,
+  rating: route.rating ?? 0,
+  segments: route.segments ?? [],
+  comments: route.comments ?? [],
+  elevation: route.elevation ?? [],
+};
+
+
 
   const getConditionColor = (condition: Route["condition"]) => {
     switch (condition) {
@@ -83,21 +84,14 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
-        <h2 className="text-gray-900">{route.name}</h2>
+        <h2 className="text-gray-900">{safeRoute.name}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {/* Map */}
         <div className="h-64">
-          <MapView
-            highlightedPaths={[
-              {
-                id: route.id,
-                coordinates: route.path,
-                condition: route.condition,
-              },
-            ]}
-          />
+          <MapView highlightedPath={safeRoute.path} />
+
         </div>
 
         <div className="p-4 space-y-6">
@@ -108,26 +102,26 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
                 <div className="flex items-center gap-2">
                   <StarIcon className="w-5 h-5 text-yellow-500 fill-yellow-500" />
                   <span className="text-gray-900">
-                    {route.rating} points
+                    {safeRoute.rating} points
                   </span>
                 </div>
-                <Badge className={getConditionColor(route.condition)}>
-                  {getConditionText(route.condition)}
+                <Badge className={getConditionColor(safeRoute.condition)}>
+                  {getConditionText(safeRoute.condition)}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-gray-900">{route.distance} km</p>
+                  <p className="text-gray-900">{safeRoute.distance} km</p>
                   <p className="text-gray-500">Total Distance</p>
                 </div>
                 <div>
-                  <p className="text-gray-900">{route.duration} min</p>
+                  <p className="text-gray-900">{safeRoute.duration} min</p>
                   <p className="text-gray-500">Est. Duration</p>
                 </div>
                 <div>
                   <p className="text-gray-900">
-                    {route.segments.length} seg
+                    {safeRoute.segments.length} seg
                   </p>
                   <p className="text-gray-500">Segments</p>
                 </div>
@@ -144,7 +138,7 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
             <Card>
               <CardContent className="p-4">
                 <div className="h-32 flex items-end justify-between gap-1">
-                  {route.elevation.map((height, index) => (
+                  {safeRoute.elevation.map((height, index) => (
                     <div
                       key={index}
                       className="flex-1 bg-green-500 rounded-t"
@@ -167,7 +161,7 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
               <span className="text-gray-900">Segment Details</span>
             </div>
             <div className="space-y-3">
-              {route.segments.map((segment, index) => (
+              {safeRoute.segments.map((segment, index) => (
                 <Card key={index}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -215,13 +209,13 @@ export default function PathDetail({ user, routes = [] }: PathDetailProps) {
             <div className="flex items-center gap-2 mb-3">
               <MessageCircleIcon className="w-5 h-5 text-gray-600" />
               <span className="text-gray-900">
-                User Reviews ({route.comments.length})
+                User Reviews ({safeRoute.comments.length})
               </span>
             </div>
 
-            {route.comments.length > 0 ? (
+            {safeRoute.comments.length > 0 ? (
               <div className="space-y-3">
-                {route.comments.map((comment, index) => (
+                {safeRoute.comments.map((comment, index) => (
                   <Card key={index}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
