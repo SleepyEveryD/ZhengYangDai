@@ -17,14 +17,56 @@ import { saveRideLocal } from '../services/rideStorage';
 import { findNearestPathIndex } from "../utils/geo";
 import { useAuth } from '../auth/AuthContext';
 import { Navigate } from 'react-router-dom';
+enum RoadCondition {
+  EXCELLENT = 'EXCELLENT',
+  GOOD = 'GOOD',
+  FAIR = 'FAIR',
+  NEED_REPAIR = 'NEED_REPAIR',
+}
 
 type RoadConditionSegment = {
   id: string;
+  name: string;
   startPoint: number;
   endPoint: number;
-  condition: 'excellent' | 'good' | 'fair' | 'poor';
+  condition: RoadCondition;
   pathCoordinates: [number, number][];
 };
+
+
+function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
+  
+  if (!ride.streets?.length || !ride.path?.length) return [];
+
+  return ride.streets.map((street, i) => {
+    const idx = street.positions[0].index;
+
+    let start = idx;
+    let end = idx;
+
+    if (street.positions.length === 1) {
+      if (idx === 0) end = 1;
+      else if (idx === ride.path.length - 1) start = idx - 1;
+      else {
+        start = idx - 1;
+        end = idx + 1;
+      }
+    }
+
+    return {
+      id: `segment-${i}-${start}-${end}`,
+      name: street.name || `Unnamed road ${i + 1}`, // ✅ 关键
+      startPoint: start,
+      endPoint: end,
+      condition: RoadCondition.GOOD,
+      pathCoordinates: ride.path.slice(start, end + 1),
+    };
+  });
+}
+
+
+
+
 
 export default function RideRecordConfirm() {
   const { user } = useAuth();
@@ -66,13 +108,22 @@ export default function RideRecordConfirm() {
   const segmentStartRef = useRef<number | null>(segmentStartPoint);
   const segmentEndRef = useRef<number | null>(segmentEndPoint);
   const mapModeRef = useRef(mapMode);
+  const [highlightSegment, setHighlightSegment] = useState<{
+    startIndex: number;
+    endIndex: number;
+  } | null>(null);
+  const [conditionsConfirmed, setConditionsConfirmed] = useState(false);
+
+
+
 
   useEffect(() => { segmentStartRef.current = segmentStartPoint; }, [segmentStartPoint]);
   useEffect(() => { segmentEndRef.current = segmentEndPoint; }, [segmentEndPoint]);
   useEffect(() => { mapModeRef.current = mapMode; }, [mapMode]);
-  
-  // Current step in the workflow
-  const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
+  useEffect(() => {
+    if (!ride) return;
+    setRoadConditionSegments(buildSegmentsFromStreets(ride));
+  }, [ride]);
 
   if (!ride) {
     return (
@@ -81,6 +132,10 @@ export default function RideRecordConfirm() {
       </div>
     );
   }
+  // Current step in the workflow
+  const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
+  
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -335,43 +390,41 @@ export default function RideRecordConfirm() {
   };
 
   const handleEditSegment = (segmentId: string) => {
-    const segment = roadConditionSegments.find((s) => s.id === segmentId);
-    if (segment) {
-      setEditingSegmentId(segmentId);
-      setSegmentStartPoint(segment.startPoint);
-      setSegmentEndPoint(segment.endPoint);
-      setSegmentCondition(segment.condition);
-      setIsSelectingSegment(true);
-      setReportTab('conditions');
-      setShowReportDialog(true);
-    }
+    const segment = roadConditionSegments.find(s => s.id === segmentId);
+    if (!segment) return;
+  
+    setEditingSegmentId(segmentId);
+    setSegmentCondition(segment.condition);
+  
+    // ✅ 关键：告诉 map 要 highlight 哪一段
+    setHighlightSegment({
+      startIndex: segment.startPoint,
+      endIndex: segment.endPoint,
+    });
+  
+    setMapMode("segment");
+    setReportTab('conditions');
+    setShowReportDialog(true);
   };
+  
 
   const handleUpdateSegment = () => {
-    if (!editingSegmentId || segmentStartPoint === null || segmentEndPoint === null) return;
-
-    const segmentPath = ride.path.slice(segmentStartPoint, segmentEndPoint + 1);
-
-    setRoadConditionSegments((prev) =>
-      prev.map((segment) =>
+    if (!editingSegmentId) return;
+  
+    setRoadConditionSegments(prev =>
+      prev.map(segment =>
         segment.id === editingSegmentId
-          ? {
-              ...segment,
-              startPoint: segmentStartPoint,
-              endPoint: segmentEndPoint,
-              condition: segmentCondition,
-              pathCoordinates: segmentPath,
-            }
+          ? { ...segment, condition: segmentCondition }
           : segment
       )
     );
-
+  
     setEditingSegmentId(null);
-    setSegmentStartPoint(null);
-    setSegmentEndPoint(null);
-    setIsSelectingSegment(false);
+    setHighlightSegment(null); // ✅
+    setMapMode("none");
     toast.success('Segment updated successfully');
   };
+  
 
   const handleDeleteSegment = (segmentId: string) => {
     setRoadConditionSegments((prev) => prev.filter((segment) => segment.id !== segmentId));
@@ -540,6 +593,7 @@ export default function RideRecordConfirm() {
               </div>
             </div>
           )}
+          
 
           {issues.length === 0 && (
             <Card>
@@ -549,6 +603,7 @@ export default function RideRecordConfirm() {
               </CardContent>
             </Card>
           )}
+          
 
           {/* Report Road Conditions Button */}
           <Card className="bg-orange-50 border-2 border-orange-300">
@@ -576,56 +631,38 @@ export default function RideRecordConfirm() {
           </Card>
 
           {/* Road Condition Segments Preview */}
-          {roadConditionSegments.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-900">
-                  Road Condition Segments ({roadConditionSegments.length})
-                </h3>
-              </div>
-              <div className="space-y-3">
-                {roadConditionSegments.map((segment) => (
-                  <Card key={segment.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-gray-900">
-                              Segment {segment.startPoint} → {segment.endPoint}
-                            </span>
-                            <Badge className={getConditionColor(segment.condition)} variant="secondary">
-                              {getConditionText(segment.condition)}
-                            </Badge>
+          {conditionsConfirmed && roadConditionSegments.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-gray-900">
+                    Road Condition Segments ({roadConditionSegments.length})
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {roadConditionSegments.map((segment) => (
+                    <Card key={segment.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{segment.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {segment.pathCoordinates.length} points
+                            </p>
                           </div>
-                          <p className="text-gray-600">
-                            {segment.pathCoordinates.length} points ({(segment.pathCoordinates.length * 0.05).toFixed(2)} km approx)
-                          </p>
+
+                          <Badge variant="secondary">
+                            {segment.condition}
+                          </Badge>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditSegment(segment.id)}
-                          >
-                            <EditIcon className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700"
-                            onClick={() => handleDeleteSegment(segment.id)}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+
         </div>
       </div>
 
@@ -650,7 +687,17 @@ export default function RideRecordConfirm() {
       </div>
 
       {/* Report Road Conditions Dialog */}
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+      <Dialog
+        open={showReportDialog}
+        onOpenChange={(open) => {
+          setShowReportDialog(open);
+          if (!open) {
+            setHighlightSegment(null);
+            setMapMode("none");
+          }
+        }}
+        
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Report Road Conditions</DialogTitle>
@@ -874,14 +921,16 @@ export default function RideRecordConfirm() {
               {/* Simplified Map for Segment Selection */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
-                  <MapView
-                    userPath={ride.path}
-                    selectedSegment={{
-                      startIndex: segmentStartPoint,
-                      endIndex: segmentEndPoint,
-                    }}
-                    onMapClick={mapMode === "segment" ? handleMapClick : undefined}
-                  />
+                <MapView
+                  userPath={ride.path}
+                  issues={issues.map((issue) => ({
+                    location: issue.location,
+                    type: issue.type,
+                  }))}
+                  selectedSegment={highlightSegment ?? undefined}
+                />
+
+
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
                     <p className="text-white text-sm bg-black/50 px-3 py-1 rounded">
                       Select route segment to rate
@@ -1036,42 +1085,66 @@ export default function RideRecordConfirm() {
                 <div className="space-y-3">
                   <h4 className="text-gray-900 font-medium">Road Segments ({roadConditionSegments.length})</h4>
                   {roadConditionSegments.map((segment) => (
-                    <Card key={segment.id}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between">
+                    <Card
+                    key={segment.id}
+                    className="cursor-pointer hover:border-blue-500 transition"
+                    onClick={() => {
+                      setHighlightSegment({
+                        startIndex: segment.startPoint,
+                        endIndex: segment.endPoint,
+                      });
+                    }}
+                  >
+                  
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          {/* 左：Segment 名字 */}
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium">Points {segment.startPoint} → {segment.endPoint}</span>
-                              <Badge className={getConditionColor(segment.condition)} variant="secondary">
-                                {getConditionText(segment.condition)}
-                              </Badge>
-                            </div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {segment.name}
+                            </p>
                             <p className="text-xs text-gray-600">
-                              {segment.pathCoordinates.length} points, approx {(segment.pathCoordinates.length * 0.05).toFixed(2)} km
+                              {segment.pathCoordinates.length} points · approx{' '}
+                              {(segment.pathCoordinates.length * 0.05).toFixed(2)} km
                             </p>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditSegment(segment.id)}
-                            >
-                              <EditIcon className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600"
-                              onClick={() => handleDeleteSegment(segment.id)}
-                            >
-                              <TrashIcon className="w-3 h-3" />
-                            </Button>
-                          </div>
+
+                          {/* 右：Condition dropdown */}
+                          <Select
+                            value={segment.condition}
+                            onValueChange={(v) => {
+                              setRoadConditionSegments(prev =>
+                                prev.map(s =>
+                                  s.id === segment.id
+                                    ? { ...s, condition: v as RoadCondition }
+                                    : s
+                                )
+                              );
+                            }}
+                          >
+                            <SelectTrigger className="w-[160px] h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={RoadCondition.EXCELLENT}>
+                                Excellent
+                              </SelectItem>
+                              <SelectItem value={RoadCondition.GOOD}>
+                                Good
+                              </SelectItem>
+                              <SelectItem value={RoadCondition.FAIR}>
+                                Fair
+                              </SelectItem>
+                              <SelectItem value={RoadCondition.NEED_REPAIR}>
+                                Needs Repair
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
+
                 </div>
               )}
             </TabsContent>
@@ -1088,10 +1161,12 @@ export default function RideRecordConfirm() {
             <Button
               className="flex-1 h-12 bg-green-600 hover:bg-green-700"
               onClick={() => {
+                setConditionsConfirmed(true);   // ✅ 关键
                 setShowReportDialog(false);
                 toast.success('Road conditions saved');
               }}
             >
+
               <CheckCircleIcon className="w-5 h-5 mr-2" />
               Save Reports
             </Button>

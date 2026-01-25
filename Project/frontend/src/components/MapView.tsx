@@ -14,6 +14,13 @@ type MapViewProps = {
     alternatives?: boolean; // 默认 true
     /** 只显示一条：你可以传 "shortest" */
     pick?: "shortest" | "first";
+    selectedSegment?: {
+      startIndex: number | null;
+      endIndex: number | null;
+    };
+  
+    highlightedPath?: [number, number][];
+
   };
 
   onRoutesReady?: (payload: {
@@ -37,6 +44,7 @@ type MapViewProps = {
 
   /** 录制页：跟随定位；确认页：不跟随（避免抢拖动） */
   followUser?: boolean;
+
 };
 
 declare global {
@@ -70,6 +78,7 @@ export default function MapView({
   issues = [],
   onMapClick,
   selectedSegment,
+  highlightedPath, 
   followUser = false,
 }: MapViewProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
@@ -252,35 +261,54 @@ export default function MapView({
     });
   }, [mapReady, issues]);
 
-  /* ---------- 高亮 segment ---------- */
+
+  /* ---------- 高亮 segment（兼容 index & path 两种方式） ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
 
+    // 清掉旧的高亮
     if (selectedSegmentPolylineRef.current) {
       selectedSegmentPolylineRef.current.setMap(null);
       selectedSegmentPolylineRef.current = null;
     }
 
-    if (!selectedSegment || !userPath.length) return;
+    let pathToHighlight: [number, number][] | null = null;
 
-    const { startIndex, endIndex } = selectedSegment;
-    if (startIndex === null) return;
+    // ⭐ 优先使用 highlightedPath（road condition 场景）
+    if (highlightedPath && highlightedPath.length >= 2) {
+      pathToHighlight = highlightedPath;
+    }
+    // 🟡 兼容旧逻辑：通过 index 高亮
+    else if (selectedSegment && userPath.length) {
+      const { startIndex, endIndex } = selectedSegment;
+      if (startIndex !== null) {
+        const s = startIndex;
+        const e = endIndex ?? startIndex;
+        const seg = userPath.slice(
+          Math.min(s, e),
+          Math.max(s, e) + 1
+        );
+        if (seg.length >= 2) {
+          pathToHighlight = seg;
+        }
+      }
+    }
 
-    const s = startIndex;
-    const e = endIndex ?? startIndex;
-    const seg = userPath.slice(Math.min(s, e), Math.max(s, e) + 1);
-    if (!seg.length) return;
+    if (!pathToHighlight) return;
 
     selectedSegmentPolylineRef.current = new google.maps.Polyline({
-      path: seg.map(([lat, lng]) => ({ lat, lng })),
+      path: pathToHighlight.map(([lat, lng]) => ({ lat, lng })),
       geodesic: true,
       strokeOpacity: 1,
       strokeWeight: 7,
+      strokeColor: "#f97316", // 🟠 高亮色（橙色）
+      zIndex: 10,
     });
 
     selectedSegmentPolylineRef.current.setMap(mapRef.current);
-  }, [mapReady, selectedSegment, userPath]);
+  }, [mapReady, highlightedPath, selectedSegment, userPath]);
+
 
   return (
     <div className="w-full h-full relative">

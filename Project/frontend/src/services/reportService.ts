@@ -3,55 +3,105 @@ import type { RideStreet } from "@/types/ride";
 import type { ResolveStreetsResponse } from "@/types/street";
 
 class RideRouteService {
+  // 📏 Haversine 距离计算（米）
+  private distanceInMeters(
+    a: [number, number],
+    b: [number, number]
+  ): number {
+    const R = 6371000;
+    const toRad = (v: number) => (v * Math.PI) / 180;
+
+    const [lng1, lat1] = a;
+    const [lng2, lat2] = b;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+
+    const lat1Rad = toRad(lat1);
+    const lat2Rad = toRad(lat2);
+
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1Rad) *
+        Math.cos(lat2Rad) *
+        Math.sin(dLng / 2) ** 2;
+
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
   async resolveStreetsFromRouteGeoJson(
     routeGeoJson: GeoJSON.LineString
   ): Promise<RideStreet[]> {
-    // 1️⃣ GeoJSON → sampled points
+    // 1️⃣ route geometry → sampled points
     const points = routeGeoJson.coordinates.map((coord, index) => ({
       index,
       coord: coord as [number, number], // [lng, lat]
     }));
 
-    console.log("reportService>> resolveStreetsFromRouteGeoJson called");
-    console.log("reportService>> sampled points =", points.length);
-
-    // 2️⃣ 调后端
+    // 2️⃣ backend resolve
     const res = await api.post<ResolveStreetsResponse>(
       "/report/resolve-streets",
       { points }
     );
 
-
-    // 4️⃣ ⭐ 在 service 层整理 streets（去重 + 合并 positions）
-    const normalizedStreets = this.normalizeRideStreets(
-      res.data.streets
-    );
-
-
-    // ✅ 只把“干净的业务数据”往外返回
-    return normalizedStreets;
+    // 3️⃣ normalize in service layer
+    return this.normalizeRideStreets(res.data.streets);
   }
 
-  // ⭐ street 整理逻辑放在 service 内部（非常合理）
+  // 🧠 核心：合并 + 去重 + 排序 + 重编号
   private normalizeRideStreets(
     streets: RideStreet[]
   ): RideStreet[] {
-    const map = new Map<string, RideStreet>();
+    const result: RideStreet[] = [];
 
     for (const street of streets) {
-      if (!map.has(street.externalId)) {
-        map.set(street.externalId, {
+      const target = result.find((s) => {
+        if (
+          s.name !== street.name ||
+          s.city !== street.city ||
+          s.country !== street.country
+        ) {
+          return false;
+        }
+
+        const a = s.positions[0]?.coord as [number, number];
+        const b = street.positions[0]?.coord as [number, number];
+
+        if (!a || !b) return false;
+
+        return this.distanceInMeters(a, b) <= 1000;
+      });
+
+      if (!target) {
+        // 第一次命中 → externalId 固定
+        result.push({
           ...street,
           positions: [...street.positions],
         });
       } else {
-        map.get(street.externalId)!.positions.push(
-          ...street.positions
+        // 合并 positions（按 route index 去重）
+        const existingIndexes = new Set(
+          target.positions.map((p) => p.index)
         );
+
+        for (const pos of street.positions) {
+          if (!existingIndexes.has(pos.index)) {
+            target.positions.push(pos);
+          }
+        }
       }
     }
 
-    return [...map.values()];
+    // 4️⃣ 排序 + street 内 index 重编号（从 0 开始）
+    for (const street of result) {
+      street.positions
+        .sort((a, b) => a.index - b.index)
+        .forEach((pos, i) => {
+          pos.index = i;
+        });
+    }
+
+    return result;
   }
 }
 
