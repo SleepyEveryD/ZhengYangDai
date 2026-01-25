@@ -4,35 +4,30 @@ type IssueMarker = {
   location: [number, number];
   type?: string;
 };
+type ColoredPath = {
+  id: string;
+  path: [number, number][];
+  color: string;
+  weight?: number; // 线粗，选中时用
+};
+
 
 type MapViewProps = {
+  paths?: ColoredPath[]; 
+  highlightedPath?: [number, number][];
   currentLocation?: [number, number];
-  routeRequest?: {
-    origin: string | { lat: number; lng: number };
-    destination: string | { lat: number; lng: number };
-    travelMode?: "BICYCLING" | "WALKING" | "DRIVING";
-    alternatives?: boolean; // 默认 true
-    /** 只显示一条：你可以传 "shortest" */
-    pick?: "shortest" | "first";
-    selectedSegment?: {
-      startIndex: number | null;
-      endIndex: number | null;
-    };
   
-    highlightedPath?: [number, number][];
 
-  };
-
-  onRoutesReady?: (payload: {
+ /* onRoutesReady?: (payload: {
     routes: Array<{
       index: number;
       summary?: string;
-      distanceKm: number;
-      durationMin: number;
+      distance: number;
+      duration: number;
       path: [number, number][];
     }>;
     pickedIndex: number;
-  }) => void;
+  }) => void;*/
 
   userPath?: [number, number][];
   issues?: IssueMarker[];
@@ -79,6 +74,7 @@ export default function MapView({
   onMapClick,
   selectedSegment,
   highlightedPath, 
+  paths = [],
   followUser = false,
 }: MapViewProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
@@ -103,7 +99,9 @@ export default function MapView({
   }, [currentLocation, userPath]);
 
   const didSnapToUserRef = useRef(false);
-  console.log("google maps loaded?", window.google?.maps);
+  const multiPathPolylinesRef = useRef<any[]>([]);
+  
+
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -146,6 +144,37 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ---------- 画多条路线（paths） ---------- */
+useEffect(() => {
+  if (!mapReady || !mapRef.current || !window.google?.maps) return;
+  const google = window.google;
+
+  // 1️⃣ 先清掉旧的多路线
+  multiPathPolylinesRef.current.forEach((pl) => pl.setMap(null));
+  multiPathPolylinesRef.current = [];
+
+  if (!paths || paths.length === 0) return;
+
+  // 2️⃣ 逐条画
+  paths.forEach((p) => {
+    if (!p.path || p.path.length < 2) return;
+
+    const polyline = new google.maps.Polyline({
+      path: p.path.map(([lat, lng]) => ({ lat, lng })),
+      geodesic: true,
+      strokeColor: p.color,
+      strokeOpacity: 0.85,
+      strokeWeight: p.weight ?? 5,
+      zIndex: 5,
+    });
+
+    polyline.setMap(mapRef.current);
+    multiPathPolylinesRef.current.push(polyline);
+  });
+}, [mapReady, paths]);
+
+  
+
   /* ---------- 绑定点击事件 ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
@@ -169,6 +198,7 @@ export default function MapView({
       }
     };
   }, [mapReady, onMapClick]);
+  
 
   /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
   useEffect(() => {
