@@ -265,59 +265,21 @@ export default function RideRecordConfirm() {
   
 
   const handleSaveAndPublish = () => {
-    if (issues.some(issue => issue.status === 'pending')) {
-      toast.error('Please confirm or ignore all pending issues');
-      return;
-    }
-
-    // 必须先点过 “Save Reports”
+    //必须先save
     if (!conditionsConfirmed) {
       toast.error('Please save road condition reports first');
       setShowReportDialog(true);
       setReportTab('conditions');
       return;
     }
+    saveRide('CONFIRMED');
 
-    if (roadConditionSegments.length === 0) {
-      toast.error('Please add at least one road condition segment before publishing');
-      setShowReportDialog(true);
-      setReportTab('conditions');
-      return;
-    }
-  
-    const confirmedIssues = issues.filter(i => i.status === 'confirmed');
-    const rideIssues = confirmedIssues.map(issue =>
-      mapUiIssueToRideIssue(issue, ride.streetId)
-    );
-  
-    const finalRide = {
-      ...storedRide,
-      rideIssues,
-      status,
-      uploadStatus: 'pending',
-      publish: true,
-      confirmedAt: new Date().toISOString(),
-    };
-  
-    console.log('RideRecordConfirm>> finalRide', finalRide);
-  
-    saveRideLocal(finalRide);
-  
-    toast.success(
-      status === 'DRAFT'
-        ? 'Ride saved locally'
-        : 'Ride saved and published'
-    );
-    navigate('/map');
   };
   
   const handleSaveOnly = () => {
     saveRide('DRAFT');
   };
-  
-  const handleSaveAndPublish = () => {
-    saveRide('CONFIRMED');
-  };
+
 
 
   const pendingIssues = issues.filter((issue) => issue.status === 'pending');
