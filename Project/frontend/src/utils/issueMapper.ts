@@ -42,4 +42,7 @@ export function mapUiIssueToRideIssue(
     notes: uiIssue.description || undefined,
     createdAt: new Date(uiIssue.date),
   };
+
+
+
 }
