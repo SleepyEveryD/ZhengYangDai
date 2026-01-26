@@ -7,7 +7,7 @@ import {
   Get,
   UseGuards,
   Req,
-  BadRequestException
+  BadRequestException,
 } from '@nestjs/common';
 
 import { RideService } from './ride.service';
@@ -20,26 +20,46 @@ export class RideController {
   }
 
   /**
-   * PUT /rides/:rideId
-   * 保存 Draft Ride（只存路线）
-   * Body = GeoJSON LineString
+   * PUT /rides/:rideId/save
+   * 保存 Draft Ride（只保存路线）
    */
   @UseGuards(SupabaseAuthGuard)
-  @Put(':rideId')
+  @Put(':rideId/save')
   async saveDraftRide(
     @Param('rideId') rideId: string,
     @Body() body: any,
     @Req() req: any,
   ) {
     const userId = req.user.userId;
-    return this.rideService.saveDraftRide(rideId, userId, body);
+
+    // ✅ 必须是 DRAFT
+    if (body.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Ride status must be DRAFT when saving draft',
+      );
+    }
+
+    // ✅ 防止前端 rideId 不一致
+    if (body.id && body.id !== rideId) {
+      throw new BadRequestException('Ride ID mismatch');
+    }
+
+    // ✅ 必须有 routeGeoJson
+    if (!body.routeGeoJson) {
+      throw new BadRequestException('routeGeoJson is required');
+    }
+
+    return this.rideService.saveDraftRide(
+      rideId,
+      userId,
+      body.routeGeoJson,
+    );
   }
 
   /**
-   * GET /rides/:rideId
-   * 获取 Ride 详情
+   * POST /rides/:rideId/confirm
+   * Confirm Ride（DRAFT → CONFIRMED）
    */
-
   @UseGuards(SupabaseAuthGuard)
   @Post(':rideId/confirm')
   async confirmRide(
@@ -48,28 +68,25 @@ export class RideController {
     @Req() req: any,
   ) {
     const userId = req.user.userId;
-  
+
     // ✅ 必须是 CONFIRMED
     if (body.status !== 'CONFIRMED') {
       throw new BadRequestException(
         'Ride must be in CONFIRMED status to confirm',
       );
     }
-  
-    // （可选但推荐）防止前端传错 rideId
+
+    // ✅ 防止前端传错 rideId
     if (body.id && body.id !== rideId) {
       throw new BadRequestException('Ride ID mismatch');
     }
-  
+
     return this.rideService.confirmRide({
       rideId,
       userId,
       payload: body,
     });
   }
-  
-   
-   
 
   /**
    * GET /rides/:rideId
