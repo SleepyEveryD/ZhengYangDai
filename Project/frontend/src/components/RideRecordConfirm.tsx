@@ -250,6 +250,7 @@ export default function RideRecordConfirm() {
     const finalRide = {
       ...ride,
       issues,
+      status,
       roadConditionSegments,
       uploadStatus: 'pending', // 👈 关键
       confirmedAt: new Date().toISOString(),
