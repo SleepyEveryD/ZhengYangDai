@@ -90,7 +90,12 @@ export default function PathResults() {
   };*/
 useEffect(() => {
   const fetchRoutes = async () => {
-    if (!destinationForDirections) return;
+    if (!destinationForDirections) {
+      setRoutes([]);
+      setSelectedRouteId("");
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
