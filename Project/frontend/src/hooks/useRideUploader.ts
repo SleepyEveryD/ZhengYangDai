@@ -1,69 +1,56 @@
-//Project/bbp-app/src/hooks/useRideUploader.ts
 import { useEffect } from 'react';
-import { getCurrentRide } from '../services/rideStorage';
-import api from "../lib/api"; 
+import api from '../lib/api';
 
+const STORAGE_KEY = 'current_ride';
 
 export function useRideUploader() {
   useEffect(() => {
-    function mapCondition(
-      c: 'excellent' | 'good' | 'fair' | 'poor'
-    ): 'EXCELLENT' | 'GOOD' | 'FAIR' | 'NEED_REPAIR' {
-      switch (c) {
-        case 'excellent': return 'EXCELLENT';
-        case 'good': return 'GOOD';
-        case 'fair': return 'FAIR';
-        default: return 'NEED_REPAIR';
-      }
-    }
-    
-
     const upload = async () => {
-      const ride = getCurrentRide();
-      console.log('📦 pending rides:', ride);
-   
-      try {
-        console.log('Uploading ride', ride.id, {
-          roadConditionSegments: ride.roadConditionSegments,
-        });
-        // 1️⃣ 保存 Draft Segments
-        await api.put(`/rides/${ride.id}`, {
-          segments: ride.roadConditionSegments.map((seg, index) => ({
-            orderIndex: index,
-        
-            geometry: {
-              type: "LineString",
-              coordinates: seg.pathCoordinates.map(
-                ([lat, lng]) => [lng, lat] // GeoJSON 必须 lng,lat
-              ),
-            },
-        
-            lengthM: seg.pathCoordinates.length * 50, // 你现在的 approx 逻辑
-        
-            report: {
-              roadCondition: mapCondition(seg.condition),
-              issueType: "NONE",
-            },
-          })),
-        });
-        
-
-        // 2️⃣ Confirm Ride
-        await api.post(`/rides/${ride.id}/confirm`, {
-          publish: ride.publish === true,
-        });
-
-        // 3️⃣ 标记 uploaded
-        markRideUploaded(ride.id);
-
-        console.log('Uploaded ride', ride.id);
-      } catch (e) {
-        console.error('Upload failed', ride.id, e);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        console.log('📭 no ride in localStorage');
+        return;
       }
-      
+
+      const ride = JSON.parse(raw);
+
+      // ✅ 1️⃣ 只处理 pending
+      if (ride.uploadStatus !== 'pending') {
+        console.log('⏭️ skip upload, uploadStatus:', ride.uploadStatus);
+        return;
+      }
+
+      // ✅ 2️⃣ 构造 confirm payload（必须包含 status）
+      const { uploadStatus, ...payload } = ride;
+
+      if (payload.status !== 'CONFIRMED') {
+        console.warn('⚠️ ride is not CONFIRMED, skip upload');
+        return;
+      }
+
+      try {
+        console.log('⬆️ confirming ride', payload.id);
+
+        // ✅ 3️⃣ 只调用 confirm（一次性完成）
+        await api.post(`/rides/${payload.id}/confirm`, payload);
+
+        // ✅ 4️⃣ 标记已上传
+        const updatedRide = {
+          ...ride,
+          uploadStatus: 'uploaded',
+        };
+
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(updatedRide)
+        );
+
+        console.log('✅ upload success, marked as uploaded');
+      } catch (e) {
+        console.error('❌ upload failed', e);
+      }
     };
 
     upload();
   }, []);
 }
-

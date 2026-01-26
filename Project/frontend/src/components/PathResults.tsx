@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useAuth } from "../auth/AuthContext";
 import {
   ArrowLeftIcon,
   StarIcon,
@@ -29,17 +30,12 @@ type BackendRoute = {
   path: [number, number][];
 };
 
-
-type PathResultsProps = {
-  user?: User;
-};
-
 type NavState = {
   originText?: string;
   originCoords?: [number, number] | null;
   destinationText?: string;
 };
-
+/*
 function decodeOverviewPath(google: any, encoded: string): [number, number][] {
   // Directions API 可能会给 overview_polyline.points（encoded）
   // 用 geometry.encoding.decodePath 解码
@@ -61,9 +57,10 @@ function decodeStepsPath(google: any, route: any): [number, number][] {
 
   return path;
 }
+*/
 
-
-export default function PathResults({ user }: PathResultsProps) {
+export default function PathResults() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as NavState;
@@ -81,7 +78,7 @@ export default function PathResults({ user }: PathResultsProps) {
   const destinationForDirections = useMemo(() => {
     return state.destinationText || "";
   }, [state.destinationText]);
-
+/*
   // ✅ 确保 Google Maps script 已加载：MapView 内部在加载
   // 这里简单轮询 window.google.maps 是否存在
   const waitForGoogleMaps = async () => {
@@ -90,7 +87,7 @@ export default function PathResults({ user }: PathResultsProps) {
       await new Promise((r) => setTimeout(r, 100));
     }
     return false;
-  };
+  };*/
 useEffect(() => {
   const fetchRoutes = async () => {
     if (!destinationForDirections) return;
@@ -126,7 +123,7 @@ useEffect(() => {
   fetchRoutes();
 }, [originForDirections, destinationForDirections]);
 
-  useEffect(() => {
+ /* useEffect(() => {
     const run = async () => {
       setLoading(true);
 
@@ -137,7 +134,7 @@ useEffect(() => {
         return;
       }
 
-      const ok = await waitForGoogleMaps();
+      /*const ok = await waitForGoogleMaps();
       if (!ok) {
         console.error("Google Maps not loaded");
         setLoading(false);
@@ -154,7 +151,7 @@ useEffect(() => {
     };
 
     run();
-  }, [originForDirections, destinationForDirections]);
+  }, [originForDirections, destinationForDirections]);*/
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId);
   const coloredPaths = useMemo(() => {

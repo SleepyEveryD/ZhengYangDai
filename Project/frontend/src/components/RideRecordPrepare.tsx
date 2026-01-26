@@ -99,7 +99,6 @@ export default function RideRecordPrepare() {
             const ride = {
               id: crypto.randomUUID(),
               userId: user.id, // ⬅️ 本地模式 / 未登录可用
-              status: "DRAFT" as const,
               startedAt: now,
               endedAt: null,
               routeGeoJson: null,
