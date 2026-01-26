@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "./ui/button";
+import { useAuth } from "../auth/AuthContext";
 import {
   ArrowLeftIcon,
   StarIcon,
@@ -13,11 +14,11 @@ import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import MapView from "./MapView";
 import type { Route } from "../types/route";
-import type { User } from "../types/user";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 
-export default function PathDetail({ user }: { user?: User }) {
+export default function PathDetail() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -129,30 +130,7 @@ export default function PathDetail({ user }: { user?: User }) {
             </CardContent>
           </Card>
 
-          {/* Elevation Profile */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUpIcon className="w-5 h-5 text-gray-600" />
-              <span className="text-gray-900">Elevation Change</span>
-            </div>
-            <Card>
-              <CardContent className="p-4">
-                <div className="h-32 flex items-end justify-between gap-1">
-                  {safeRoute.elevation.map((height, index) => (
-                    <div
-                      key={index}
-                      className="flex-1 bg-green-500 rounded-t"
-                      style={{ height: `${(height / 30) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between mt-2 text-gray-500">
-                  <span>Start</span>
-                  <span>End</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+         
 
           {/* Road Segments */}
           <div>
