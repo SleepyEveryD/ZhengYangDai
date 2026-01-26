@@ -29,6 +29,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
   // 当前定位（[lat, lng]）
   const [currentLocation, setCurrentLocation] = useState<[number, number] | undefined>(undefined);
   const [locReady, setLocReady] = useState(false);
+  const [highlightedPath, setHighlightedPath] = useState<[number, number][]>([]);
+  const [issues, setIssues] = useState<{ location: [number, number]; type?: string }[]>([]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -45,40 +47,35 @@ export default function MapExplorer({ user }: MapExplorerProps) {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+  useEffect(() => {
+  if (!currentLocation) return;
 
-  /**
-   * ✅ 关键：不要用北京坐标当 demo path
-   * 用 currentLocation 当 base，生成附近的几条 demo 线路
-   */
-  const paths: PathItem[] = useMemo(() => {
-    const base: [number, number] = currentLocation ?? [45.4642, 9.19]; // Milan fallback
-    const [bLat, bLng] = base;
+  fetch("http://localhost:3000/map/analyze", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      origin: {
+        lat: currentLocation[0],
+        lng: currentLocation[1],
+      },
+      destination: {
+        lat: currentLocation[0] + 0.01,
+        lng: currentLocation[1] + 0.01,
+      },
+      travelMode: "BICYCLING",
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("route result:", data);
+      setHighlightedPath(data.highlightedPath ?? []);
+      setIssues([]);
+    })
+    .catch(console.error);
+}, [currentLocation]);
 
-    const mk = (dLat: number, dLng: number) => [bLat + dLat, bLng + dLng] as [number, number];
-
-    return [
-      {
-        id: "1",
-        coordinates: [mk(0, 0), mk(0.002, 0.0015), mk(0.004, 0.0025)],
-        condition: "excellent",
-      },
-      {
-        id: "2",
-        coordinates: [mk(0, 0), mk(0.0, 0.004), mk(0.003, 0.004)],
-        condition: "good",
-      },
-      {
-        id: "3",
-        coordinates: [mk(-0.002, 0.0015), mk(0, 0.0015), mk(0.002, 0.0015)],
-        condition: "fair",
-      },
-      {
-        id: "4",
-        coordinates: [mk(-0.004, -0.001), mk(-0.002, 0.001), mk(0.0, 0.003)],
-        condition: "poor",
-      },
-    ];
-  }, [currentLocation]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -124,7 +121,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
         <MapView
           key={locReady ? "map-loc-ready" : "map-loc-wait"}
           currentLocation={currentLocation}
-          paths={paths}
+          highlightedPath={highlightedPath}
+          issues={issues}
         />
 
         {/* Legend */}

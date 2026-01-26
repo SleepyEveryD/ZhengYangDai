@@ -15,19 +15,39 @@ export default function PathPlanning({ user }: PathPlanningProps) {
   const [destination, setDestination] = useState("");
 
   // ✅ 页面加载就定位到用户（米兰）
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setOriginCoords([pos.coords.latitude, pos.coords.longitude]);
-        setOrigin("Current Location");
-      },
-      (err) => {
-        console.warn("geolocation error", err);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  }, []);
+useEffect(() => {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      setOriginCoords([pos.coords.latitude, pos.coords.longitude]);
+    },
+    (err) => {
+      console.warn("geolocation error", err);
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+}, []);
+const useCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      setOriginCoords([pos.coords.latitude, pos.coords.longitude]);
+      setOrigin("Current Location");
+    },
+    (err) => {
+      alert("Failed to get current location");
+      console.error(err);
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+};
+
+
 
   const handleSearch = () => {
     if (!destination) return;
@@ -66,6 +86,13 @@ export default function PathPlanning({ user }: PathPlanningProps) {
               className="h-12"
             />
           </div>
+           <button
+      type="button"
+      onClick={useCurrentLocation}
+      className="text-sm text-green-600 hover:underline"
+    >
+      Use current location
+    </button>
         </div>
 
         <div className="flex items-start gap-3">

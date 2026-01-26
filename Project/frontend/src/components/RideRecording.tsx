@@ -11,28 +11,126 @@ import MapView from "./MapView";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
-import { getCurrentRide,saveRideLocal } from '../services/rideStorage';
-import { rideRouteService } from '../services/reportService';
+import { getCurrentRide, saveRideLocal } from "../services/rideStorage";
+import { rideRouteService } from "../services/reportService";
 import type { Ride } from "../types/ride";
-import type { RideStreet } from "../types/ride";
-
-
-
+import type { RideStreet } from "../types/rideStreet";
+import type { GeoJSON } from "geojson";
 
 /**
  * TRACK_MODE:
  * - "real": 用真实 GPS 轨迹（watchPosition）
- * - "demo": 用真实定位作为 base，然后附近随机抖动（演示用）
+ * - "demo": 用预设路线 + 速度推进 + 少量 GPS 抖动（更像真实骑行）
  */
 const TRACK_MODE: "real" | "demo" = "demo";
 
-// demo 抖动幅度（单位：度）
-// 0.001 ≈ 111m（纬度方向），demo 用 0.0003~0.001 比较舒服
-const DEMO_JITTER = 0.0006;
+/**
+ * Demo 路线（[lat, lng]）
+ * 这里是一条带转弯的小路线（点与点别太远，demo 更自然）
+ */
+const DEMO_ROUTE_TEMPLATE: [number, number][] = [
+  [45.46350, 9.18760],
+  [45.46355, 9.18820],
+  [45.46360, 9.18890],
+  [45.46362, 9.18940],
+  [45.46390, 9.18980],
+  [45.46440, 9.18985],
+  [45.46495, 9.18988],
+  [45.46530, 9.19020],
+  [45.46560, 9.19060],
+];
+
+/** Demo 速度（m/s）：4~7 比较像骑行 */
+const DEMO_SPEED_MPS = 5.5;
+/** GPS 抖动（米）：2~6 比较真实 */
+const DEMO_NOISE_M = 3;
+
+// 录制过滤参数（骑行友好）
+const MIN_DIST_M = 50; // demo/真实都更自然一点
+const MIN_TIME_MS = 4000;
+const MIN_TURN_DEG = 30;
+
+// ---------- helpers ----------
+const toRad = (d: number) => (d * Math.PI) / 180;
+
+const haversineMeters = (a: [number, number], b: [number, number]) => {
+  const [lat1, lng1] = a;
+  const [lat2, lng2] = b;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const q =
+    s1 * s1 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+  return 2 * R * Math.asin(Math.sqrt(q));
+};
+
+const bearingDeg = (a: [number, number], b: [number, number]) => {
+  const [lat1, lng1] = a.map(toRad) as [number, number];
+  const [lat2, lng2] = b.map(toRad) as [number, number];
+  const y = Math.sin(lng2 - lng1) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(lng2 - lng1);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+};
+
+const angleDiff = (a: number, b: number) => {
+  let d = Math.abs(a - b) % 360;
+  if (d > 180) d = 360 - d;
+  return d;
+};
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+const metersToLat = (m: number) => m / 111111;
+const metersToLng = (m: number, lat: number) =>
+  m / (111111 * Math.cos((lat * Math.PI) / 180));
+
+// path([lat,lng]) -> GeoJSON([lng,lat])
+const pathToGeoJson = (path: [number, number][]): GeoJSON.LineString => ({
+  type: "LineString",
+  coordinates: path.map(([lat, lng]) => [lng, lat]),
+});
+
+// GeoJSON([lng,lat]) -> path([lat,lng])
+const geoJsonToPath = (geo: GeoJSON.LineString): [number, number][] => {
+  return geo.coordinates.map(([lng, lat]) => [lat, lng]);
+};
+
+// 点带时间戳：用于正确计算速度
+type TrackPoint = { lat: number; lng: number; t: number };
+
+const computeStatsFromTrack = (track: TrackPoint[]) => {
+  let distM = 0;
+  let maxMps = 0;
+
+  for (let i = 1; i < track.length; i++) {
+    const a: [number, number] = [track[i - 1].lat, track[i - 1].lng];
+    const b: [number, number] = [track[i].lat, track[i].lng];
+    const d = haversineMeters(a, b);
+    distM += d;
+
+    const dt = Math.max((track[i].t - track[i - 1].t) / 1000, 0.001);
+    const mps = d / dt;
+    if (mps > maxMps) maxMps = mps;
+  }
+
+  const distKm = distM / 1000;
+  const durationSec =
+    track.length >= 2 ? Math.max((track[track.length - 1].t - track[0].t) / 1000, 1) : 1;
+
+  const avgKmh = (distKm / (durationSec / 3600)) || 0;
+  const maxKmh = maxMps * 3.6;
+
+  return { distKm, durationSec, avgKmh, maxKmh };
+};
 
 export default function RideRecording() {
   const navigate = useNavigate();
-
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -43,23 +141,86 @@ export default function RideRecording() {
   const [showIssueAlert, setShowIssueAlert] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
-  // 真实定位 base（用于 demo/兜底）
   const baseRef = useRef<[number, number] | null>(null);
 
-  // 让 issue 生成也跟着 base
+  // 真正录制：带 timestamp
+  const trackRef = useRef<TrackPoint[]>([]);
+  const lastKeptAtRef = useRef<number>(0);
+
+  // demo：沿 route 前进
+  const demoSegRef = useRef(0);
+  const demoTRef = useRef(0);
+  const demoRouteRef = useRef<[number, number][]>(DEMO_ROUTE_TEMPLATE);
+  const demoRouteReadyRef = useRef(false);
+  const demoPosRef = useRef<[number, number] | null>(null);
+  const demoHeadingRef = useRef<number>(0); // 0~360
+
   const getBase = useMemo(() => {
-    return () => baseRef.current ?? [45.4642, 9.19]; // Milan fallback
+    return () => baseRef.current ?? [45.4642, 9.19];
   }, []);
 
-  // 1) 初始化：获取一次定位，确保 path 第一帧不是北京
+  // demo 路线平移到用户当前位置（关键：防止跨城直线）
+  const alignDemoRouteToBase = (base: [number, number]) => {
+    const [baseLat, baseLng] = base;
+    const [tplLat, tplLng] = DEMO_ROUTE_TEMPLATE[0];
+    const dLat = baseLat - tplLat;
+    const dLng = baseLng - tplLng;
+
+    demoRouteRef.current = DEMO_ROUTE_TEMPLATE.map(([lat, lng]) => [
+      lat + dLat,
+      lng + dLng,
+    ]);
+
+    demoRouteReadyRef.current = true;
+    demoSegRef.current = 0;
+    demoTRef.current = 0;
+  };
+
+  // 统一入点：距离阈值 + 转弯阈值 + 时间兜底
+  const pushPoint = (p: [number, number], t: number) => {
+    const pts = trackRef.current;
+
+    if (pts.length === 0) {
+      trackRef.current = [{ lat: p[0], lng: p[1], t }];
+      lastKeptAtRef.current = t;
+      setPath([p]);
+      return;
+    }
+
+    const last = pts[pts.length - 1];
+    const lastP: [number, number] = [last.lat, last.lng];
+    const dist = haversineMeters(lastP, p);
+
+    const timeOk = t - lastKeptAtRef.current >= MIN_TIME_MS;
+    if (dist < MIN_DIST_M && !timeOk) return;
+
+    let turnOk = false;
+    if (pts.length >= 2) {
+      const prev = pts[pts.length - 2];
+      const b1 = bearingDeg([prev.lat, prev.lng], [last.lat, last.lng]);
+      const b2 = bearingDeg([last.lat, last.lng], p);
+      turnOk = angleDiff(b1, b2) >= MIN_TURN_DEG;
+    }
+
+    if (dist >= MIN_DIST_M || turnOk || timeOk) {
+      trackRef.current = [...pts, { lat: p[0], lng: p[1], t }].slice(-3000);
+      lastKeptAtRef.current = t;
+      setPath(trackRef.current.map((x) => [x.lat, x.lng]));
+    }
+  };
+
+  // 初始化定位：第一帧正确 + demo 路线对齐
   useEffect(() => {
     let cancelled = false;
-
-    const fallback: [number, number] = [45.4642, 9.19]; // Milan
+    const fallback: [number, number] = [45.4642, 9.19];
 
     if (!("geolocation" in navigator)) {
       baseRef.current = fallback;
-      setPath([fallback]);
+      if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
+
+      trackRef.current = [];
+      lastKeptAtRef.current = 0;
+      pushPoint(fallback, Date.now());
       return;
     }
 
@@ -68,12 +229,22 @@ export default function RideRecording() {
         if (cancelled) return;
         const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         baseRef.current = p;
-        setPath([p]); // ✅ 第一帧就定位到当前城市
+
+        if (TRACK_MODE === "demo") alignDemoRouteToBase(p);
+
+        trackRef.current = [];
+        lastKeptAtRef.current = 0;
+        pushPoint(p, Date.now());
       },
       () => {
         if (cancelled) return;
         baseRef.current = fallback;
-        setPath([fallback]);
+
+        if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
+
+        trackRef.current = [];
+        lastKeptAtRef.current = 0;
+        pushPoint(fallback, Date.now());
         toast.error("Location permission denied, using demo location.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -82,45 +253,39 @@ export default function RideRecording() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) 计时/里程/速度（你原来的 demo 逻辑）
+  // 计时：只负责 UI 时间；距离/速度用真实 track 算
   useEffect(() => {
     const timer = setInterval(() => {
       setDuration((prev) => prev + 1);
 
-      // demo 距离累加：每秒 0.01km = 10m/s（只是示意）
-      setDistance((prev) => prev + 0.01);
-
-      // demo 速度
-      setSpeed(Math.random() * 15 + 10);
+      const stats = computeStatsFromTrack(trackRef.current);
+      setDistance(stats.distKm);
+      setSpeed(stats.avgKmh);
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
 
-  // 3) 轨迹录制：REAL / DEMO 二选一
+  // 轨迹录制：REAL / DEMO
   useEffect(() => {
     if (TRACK_MODE === "real") {
-      // --- REAL GPS ---
       if (!("geolocation" in navigator)) return;
 
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          baseRef.current = p; // 顺便更新 base，给 issue 用
-          setPath((prev) => {
-            if (!prev.length) return [p];
-            const last = prev[prev.length - 1];
-
-            // 防抖：点太密的话可过滤（这里简单过滤重复点）
-            if (last[0] === p[0] && last[1] === p[1]) return prev;
-            return [...prev, p].slice(-3000); // 防止无限增长
-          });
+          const p: [number, number] = [
+            pos.coords.latitude,
+            pos.coords.longitude,
+          ];
+          baseRef.current = p;
+          pushPoint(p, Date.now());
         },
         (err) => {
           console.error(err);
-          toast.error("GPS tracking failed, switching to demo.");
+          toast.error("GPS tracking failed.");
         },
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
       );
@@ -128,23 +293,60 @@ export default function RideRecording() {
       return () => navigator.geolocation.clearWatch(watchId);
     }
 
-    // --- DEMO ---
+    // DEMO：沿平移后的路线前进 + 少量噪声
     const interval = setInterval(() => {
-      const base = getBase();
-      const [bLat, bLng] = base;
+      if (!demoRouteReadyRef.current) {
+        // 保险：如果初始化没拿到 base，也对齐一次
+        alignDemoRouteToBase(getBase());
+      }
 
-      const next: [number, number] = [
-        bLat + (Math.random() - 0.5) * DEMO_JITTER,
-        bLng + (Math.random() - 0.5) * DEMO_JITTER,
-      ];
+      const route = demoRouteRef.current;
+      if (route.length < 2) return;
 
-      setPath((prev) => [...prev, next].slice(-3000));
+      let seg = demoSegRef.current;
+      let tt = demoTRef.current;
 
-      // issue demo：概率触发，地点跟 base 走
-      if (Math.random() < 0.05) {
+      let a = route[seg];
+      let b = route[seg + 1];
+
+      const stepM = DEMO_SPEED_MPS;
+      const segLenM = haversineMeters(a, b);
+      const dt = segLenM > 0 ? stepM / segLenM : 1;
+
+      tt += dt;
+
+      while (tt >= 1 && seg < route.length - 2) {
+        tt -= 1;
+        seg += 1;
+        a = route[seg];
+        b = route[seg + 1];
+      }
+
+      if (seg >= route.length - 1) {
+        seg = 0;
+        tt = 0;
+        a = route[0];
+        b = route[1];
+      }
+
+      let lat = lerp(a[0], b[0], tt);
+      let lng = lerp(a[1], b[1], tt);
+
+      const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
+      const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
+
+      const next: [number, number] = [lat + nLat, lng + nLng];
+
+      demoSegRef.current = seg;
+      demoTRef.current = tt;
+
+      pushPoint(next, Date.now());
+
+      // issue demo
+      if (Math.random() < 0.03) {
         const issueLoc: [number, number] = [
-          bLat + (Math.random() - 0.5) * DEMO_JITTER,
-          bLng + (Math.random() - 0.5) * DEMO_JITTER,
+          next[0] + (Math.random() - 0.5) * metersToLat(5),
+          next[1] + (Math.random() - 0.5) * metersToLng(5, next[0]),
         ];
 
         const newIssue: Issue = {
@@ -159,11 +361,6 @@ export default function RideRecording() {
 
         setCurrentIssue(newIssue);
         setShowIssueAlert(true);
-
-        toast.warning("Road issue detected", {
-          description: "Please confirm to report this issue",
-          duration: 3000,
-        });
       }
     }, 1000);
 
@@ -195,87 +392,59 @@ export default function RideRecording() {
     setCurrentIssue(null);
   };
 
-// GeoJSON → path 的简单转换
-  const geoJsonToPath = (geo: GeoJSON.LineString): [number, number][] => {
-    return geo.coordinates.map(
-      ([lng, lat]) => [lat, lng] // ⚠️ 注意你项目里是 [lat, lng]
-    );
-  };
-
   const handleStop = async () => {
     const storedRide = getCurrentRide();
     if (!storedRide) return;
     const baseRide: Ride = { ...storedRide };
 
-    const safeDuration = Math.max(duration, 1);
-    const avgSpeed = distance / (safeDuration / 3600);
+    if (trackRef.current.length < 2) {
+      toast.error("Not enough points recorded.");
+      return;
+    }
 
-    const routeGeoJsonMock: GeoJSON.LineString = {
-      "type": "LineString",
-      "coordinates": [
-        [9.18760, 45.46350],
-        [9.18820, 45.46355],
-        [9.18890, 45.46360],
-    
-        [9.18940, 45.46362],
-        [9.18980, 45.46390], 
-        [9.18985, 45.46440],
-    
-        [9.18988, 45.46495],
-        [9.19020, 45.46530],
-        [9.19060, 45.46560]
-      ]
-    };
-    const routeGeoJson=routeGeoJsonMock;
-    if (!routeGeoJson) return;
-    console.log("RideRecording>> routeGeoJson is not null");
-    
+    const recordedPath: [number, number][] = trackRef.current.map((p) => [
+      p.lat,
+      p.lng,
+    ]);
+
+    const routeGeoJson = pathToGeoJson(recordedPath);
+
     let streets: RideStreet[] = [];
     try {
-      streets =
-        await rideRouteService.resolveStreetsFromRouteGeoJson(routeGeoJson);
-        console.log("street =", streets);
-        
-    } catch (err) {
-      console.error(
-        "RideRecording>> resolve streets failed",
-        err
+      streets = await rideRouteService.resolveStreetsFromRouteGeoJson(
+        routeGeoJson
       );
+    } catch (err) {
+      console.error("RideRecording>> resolve streets failed", err);
     }
-    const rideForlocalStorage ={
+
+    const stats = computeStatsFromTrack(trackRef.current);
+
+    const rideForlocalStorage = {
       ...baseRide,
       endedAt: new Date(),
-      routeGeoJson: routeGeoJson,
-      //todo: 前端路径处理， 处理完赋值给routeGeoJson， 上面有mock数据做参考
+      routeGeoJson,
       streets,
-    }
+    };
 
-  /*
-    retrive street name
-  */
     const updatedRide = {
       ...rideForlocalStorage,
-      avgSpeed: Number(avgSpeed.toFixed(1)),
+      avgSpeed: Number(stats.avgKmh.toFixed(1)),
       date: new Date().toISOString(),
-      distance: Number(distance.toFixed(2)),
-      duration,
-      maxSpeed: Number((speed * 1.5).toFixed(1)),
-      path: geoJsonToPath(rideForlocalStorage.routeGeoJson),
+      distance: Number(stats.distKm.toFixed(2)),
+      duration: Math.round(stats.durationSec),
+      maxSpeed: Number(stats.maxKmh.toFixed(1)),
+      path: geoJsonToPath(routeGeoJson),
       issues: detectedIssues,
-      uploadStatus: 'draft',
+      uploadStatus: "draft",
     };
-    
-
 
     saveRideLocal(rideForlocalStorage);
     navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
 
-  
-
   return (
     <div className="h-screen flex flex-col bg-white relative">
-      {/* Map */}
       <div className="flex-1 relative">
         <MapView
           userPath={path}
@@ -284,11 +453,10 @@ export default function RideRecording() {
             location: issue.location,
             type: issue.type,
           }))}
-          followUser // ✅ 录制页跟随
+          followUser
         />
       </div>
 
-      {/* Stats */}
       <motion.div
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -310,7 +478,6 @@ export default function RideRecording() {
         </div>
       </motion.div>
 
-      {/* Issue Alert */}
       <AnimatePresence>
         {showIssueAlert && (
           <motion.div
@@ -354,7 +521,6 @@ export default function RideRecording() {
         )}
       </AnimatePresence>
 
-      {/* Stop Button */}
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -368,7 +534,6 @@ export default function RideRecording() {
         </Button>
       </motion.div>
 
-      {/* Issues Counter */}
       {detectedIssues.length > 0 && (
         <motion.div
           initial={{ x: 100, opacity: 0 }}

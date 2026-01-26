@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useAuth } from "../auth/AuthContext";
 import {
   ArrowLeftIcon,
   StarIcon,
@@ -20,9 +21,13 @@ declare global {
     google: any;
   }
 }
-
-type PathResultsProps = {
-  user?: User;
+type BackendRoute = {
+  id: string;
+  name?: string;
+  distance: number;
+  duration: number;
+  condition: "excellent" | "good" | "fair" | "poor";
+  path: [number, number][];
 };
 
 type NavState = {
@@ -30,20 +35,38 @@ type NavState = {
   originCoords?: [number, number] | null;
   destinationText?: string;
 };
-
+/*
 function decodeOverviewPath(google: any, encoded: string): [number, number][] {
   // Directions API 可能会给 overview_polyline.points（encoded）
   // 用 geometry.encoding.decodePath 解码
   const arr = google.maps.geometry.encoding.decodePath(encoded);
   return arr.map((p: any) => [p.lat(), p.lng()]);
 }
+function decodeStepsPath(google: any, route: any): [number, number][] {
+  const path: [number, number][] = [];
 
-export default function PathResults({ user }: PathResultsProps) {
+  route.legs[0].steps.forEach((step: any) => {
+    const decoded = google.maps.geometry.encoding.decodePath(
+      step.polyline.points
+    );
+
+    decoded.forEach((p: any) => {
+      path.push([p.lat(), p.lng()]);
+    });
+  });
+
+  return path;
+}
+*/
+
+export default function PathResults() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as NavState;
 
-  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routes, setRoutes] = useState<BackendRoute[]>([]);
+
   const [selectedRouteId, setSelectedRouteId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +78,7 @@ export default function PathResults({ user }: PathResultsProps) {
   const destinationForDirections = useMemo(() => {
     return state.destinationText || "";
   }, [state.destinationText]);
-
+/*
   // ✅ 确保 Google Maps script 已加载：MapView 内部在加载
   // 这里简单轮询 window.google.maps 是否存在
   const waitForGoogleMaps = async () => {
@@ -64,9 +87,43 @@ export default function PathResults({ user }: PathResultsProps) {
       await new Promise((r) => setTimeout(r, 100));
     }
     return false;
+  };*/
+useEffect(() => {
+  const fetchRoutes = async () => {
+    if (!destinationForDirections) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:3000/map/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          origin: originForDirections,
+          destination: destinationForDirections,
+          travelMode: "BICYCLING",
+        }),
+      });
+
+      const data = await res.json();
+      console.log("backend routes:", data);
+
+      setRoutes(data.routes || []);
+      setSelectedRouteId(data.routes?.[0]?.id || "");
+    } catch (err) {
+      console.error("failed to fetch routes", err);
+      setRoutes([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
+  fetchRoutes();
+}, [originForDirections, destinationForDirections]);
+
+ /* useEffect(() => {
     const run = async () => {
       setLoading(true);
 
@@ -77,7 +134,7 @@ export default function PathResults({ user }: PathResultsProps) {
         return;
       }
 
-      const ok = await waitForGoogleMaps();
+      /*const ok = await waitForGoogleMaps();
       if (!ok) {
         console.error("Google Maps not loaded");
         setLoading(false);
@@ -91,74 +148,23 @@ export default function PathResults({ user }: PathResultsProps) {
       // 需要改成：`.../maps/api/js?key=xxx&libraries=geometry`
       // 否则 decodePath 不存在（下面会 fallback）
       const hasGeometry = !!google.maps.geometry?.encoding?.decodePath;
-
-      const service = new google.maps.DirectionsService();
-
-      service.route(
-        {
-          origin: originForDirections,
-          destination: destinationForDirections,
-          travelMode: google.maps.TravelMode.BICYCLING,
-          provideRouteAlternatives: true, // ✅ 多条路线
-        },
-        (result: any, status: any) => {
-          if (status !== "OK" || !result?.routes?.length) {
-            console.error("Directions failed:", status, result);
-            setRoutes([]);
-            setSelectedRouteId("");
-            setLoading(false);
-            return;
-          }
-
-          const mapped: Route[] = result.routes.map((r: any, idx: number) => {
-            // 取第一段 leg
-            const leg = r.legs?.[0];
-
-            // 路径：优先用 overview_path（不需要 geometry library）
-            let path: [number, number][] = [];
-            if (Array.isArray(r.overview_path) && r.overview_path.length) {
-              path = r.overview_path.map((p: any) => [p.lat(), p.lng()]);
-            } else if (hasGeometry && r.overview_polyline?.points) {
-              path = decodeOverviewPath(google, r.overview_polyline.points);
-            }
-
-            const distanceKm = leg?.distance?.value ? leg.distance.value / 1000 : 0;
-            const durationMin = leg?.duration?.value ? Math.round(leg.duration.value / 60) : 0;
-
-            // 你现有 UI 需要 rating/condition/segments，这里先给合理默认值（后面你再接后端）
-            const condition: Route["condition"] = idx === 0 ? "excellent" : idx === 1 ? "good" : "fair";
-
-            return {
-              id: String(idx + 1),
-              name: idx === 0 ? "Recommended Route" : idx === 1 ? "Shortest Route" : `Alternative Route ${idx + 1}`,
-              distance: Number(distanceKm.toFixed(1)),
-              duration: durationMin,
-              rating: idx === 0 ? 4.5 : idx === 1 ? 4.0 : 3.7,
-              condition,
-              path,
-              elevation: [], // 先空
-              segments: [
-                {
-                  condition,
-                  distance: Number(distanceKm.toFixed(1)),
-                  description: "From Google Directions",
-                },
-              ],
-              comments: [],
-            };
-          });
-
-          setRoutes(mapped);
-          setSelectedRouteId(mapped[0]?.id || "");
-          setLoading(false);
-        }
-      );
     };
 
     run();
-  }, [originForDirections, destinationForDirections]);
+  }, [originForDirections, destinationForDirections]);*/
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId);
+  const coloredPaths = useMemo(() => {
+  const colors = ["#2563eb", "#16a34a", "#f97316"]; // 蓝 / 绿 / 橙
+
+  return routes.map((r, index) => ({
+    id: r.id,
+    path: r.path,
+    color: colors[index % colors.length],
+    weight: r.id === selectedRouteId ? 7 : 4,
+  }));
+}, [routes, selectedRouteId]);
+
 
   const getConditionColor = (condition: Route["condition"]) => {
     switch (condition) {
@@ -189,6 +195,7 @@ export default function PathResults({ user }: PathResultsProps) {
         return "Unknown";
     }
   };
+  
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -212,20 +219,12 @@ export default function PathResults({ user }: PathResultsProps) {
 
       {/* Map */}
       <div className="h-64 relative">
-        <MapView
-          currentLocation={state.originCoords ?? undefined}
-          highlightedPaths={
-            selectedRoute
-              ? [
-                  {
-                    id: selectedRoute.id,
-                    coordinates: selectedRoute.path,
-                    condition: selectedRoute.condition,
-                  },
-                ]
-              : []
-          }
-        />
+  <MapView
+  currentLocation={state.originCoords ?? undefined}
+  paths={coloredPaths}
+/>
+
+
 
         {loading && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
@@ -262,15 +261,16 @@ export default function PathResults({ user }: PathResultsProps) {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-gray-900">{route.name}</span>
+                     
+                      <span className="text-gray-900">
+                      {route.name ?? `Route ${index + 1}`}
+                      </span>
+
                       {index === 0 && (
                         <Badge className="bg-green-600">Recommended</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <StarIcon className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      <span className="text-gray-600">{route.rating}</span>
-                    </div>
+                   
                   </div>
                   <Badge className={getConditionColor(route.condition)}>
                     {getConditionText(route.condition)}
@@ -295,7 +295,8 @@ export default function PathResults({ user }: PathResultsProps) {
                   <div className="flex items-center gap-2">
                     <TrendingUpIcon className="w-4 h-4 text-gray-400" />
                     <div>
-                      <p className="text-gray-900">{route.segments.length} seg</p>
+                     <p className="text-gray-900">1 seg</p>
+
                       <p className="text-gray-500">Segments</p>
                     </div>
                   </div>
