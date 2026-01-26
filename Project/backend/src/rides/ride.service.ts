@@ -17,6 +17,7 @@ export class RideService {
     userId: string,
     routeGeoJson: any,
   ) {
+    /*
     return this.prisma.$transaction(async (tx) => {
       // mock route（测试阶段）
       routeGeoJson = {
@@ -57,6 +58,7 @@ export class RideService {
 
       return { ok: true };
     });
+    */
   }
 
   /**
@@ -68,6 +70,7 @@ export class RideService {
     userId: string,
     publish: boolean,
   ) {
+    /*
     // 1. 查找 Ride
     const ride = await this.prisma.ride.findUnique({
       where: { id: rideId },
@@ -128,6 +131,7 @@ export class RideService {
       });
 
       // 3.5 如果 publish = true，可以创建 StreetReport（可选）
+
       if (publish) {
         await tx.streetReport.upsert({
           where: {
@@ -171,29 +175,19 @@ export class RideService {
     });
 
     return { ok: true };
+    */
   }
 
   /**
    * 获取 Ride 详情（包含关联的 streets）
    */
   async getRide(rideId: string) {
+    
     const ride = await this.prisma.ride.findUnique({
       where: { id: rideId },
       include: {
-        streets: {
-          include: {
-            street: {
-              select: {
-                id: true,
-                externalId: true,
-                name: true,
-                city: true,
-                country: true,
-              },
-            },
-          },
-        },
-      },
+        reports: true,  // 如果需要 reports
+      }
     });
 
     if (!ride) {
@@ -211,20 +205,8 @@ export class RideService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
-        streets: {
-          include: {
-            street: {
-              select: {
-                id: true,
-                externalId: true,
-                name: true,
-                city: true,
-                country: true,
-              },
-            },
-          },
-        },
-      },
+        reports: true,  // 如果需要 reports
+      }
     });
   }
 }
