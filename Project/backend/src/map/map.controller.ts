@@ -2,10 +2,6 @@ import { Controller, Get, Post, Body } from '@nestjs/common';
 import axios from 'axios';
 import polyline from '@mapbox/polyline';
 
-
-
-
-
 @Controller('map')
 
 export class MapController {
