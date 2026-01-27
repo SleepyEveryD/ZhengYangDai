@@ -88,6 +88,28 @@ export default function MapView({
 
   const didSnapToUserRef = useRef(false);
   const multiPathPolylinesRef = useRef<any[]>([]);
+
+  const fitToLatLngPaths = (pathsToFit: [number, number][][]) => {
+    if (!mapRef.current || !window.google?.maps) return;
+    const google = window.google;
+
+    const bounds = new google.maps.LatLngBounds();
+    let count = 0;
+
+    pathsToFit.forEach((path) => {
+      path.forEach(([lat, lng]) => {
+        bounds.extend({ lat, lng });
+        count++;
+      });
+    });
+
+    if (count === 0) return;
+
+    // ✅ 解决容器尺寸变化导致的偏移
+    google.maps.event.trigger(mapRef.current, "resize");
+    mapRef.current.fitBounds(bounds, 40); // padding 40px
+  };
+
   
 
 
@@ -133,35 +155,33 @@ export default function MapView({
   }, []);
 
   /* ---------- 画多条路线（paths） ---------- */
-useEffect(() => {
-  if (!mapReady || !mapRef.current || !window.google?.maps) return;
-  const google = window.google;
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    const google = window.google;
 
-  // 1️⃣ 先清掉旧的多路线
-  multiPathPolylinesRef.current.forEach((pl) => pl.setMap(null));
-  multiPathPolylinesRef.current = [];
+    // 1️⃣ 先清掉旧的多路线
+    multiPathPolylinesRef.current.forEach((pl) => pl.setMap(null));
+    multiPathPolylinesRef.current = [];
 
-  if (!paths || paths.length === 0) return;
+    if (!paths || paths.length === 0) return;
 
-  // 2️⃣ 逐条画
-  paths.forEach((p) => {
-    if (!p.path || p.path.length < 2) return;
+    // 2️⃣ 逐条画
+    paths.forEach((p) => {
+      if (!p.path || p.path.length < 2) return;
 
-    const polyline = new google.maps.Polyline({
-      path: p.path.map(([lat, lng]) => ({ lat, lng })),
-      geodesic: true,
-      strokeColor: p.color,
-      strokeOpacity: 0.85,
-      strokeWeight: p.weight ?? 5,
-      zIndex: 5,
+      const polyline = new google.maps.Polyline({
+        path: p.path.map(([lat, lng]) => ({ lat, lng })),
+        geodesic: true,
+        strokeColor: p.color,
+        strokeOpacity: 0.85,
+        strokeWeight: p.weight ?? 5,
+        zIndex: 5,
+      });
+
+      polyline.setMap(mapRef.current);
+      multiPathPolylinesRef.current.push(polyline);
     });
-
-    polyline.setMap(mapRef.current);
-    multiPathPolylinesRef.current.push(polyline);
-  });
-}, [mapReady, paths]);
-
-  
+  }, [mapReady, paths]);
 
   /* ---------- 绑定点击事件 ---------- */
   useEffect(() => {
@@ -191,6 +211,7 @@ useEffect(() => {
   /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
+    if (!followUser) return;
     if (didFitBoundsRef.current) return;
     if (userPath.length < 2) return;
 
@@ -208,6 +229,32 @@ useEffect(() => {
 
     mapRef.current.setCenter(fallbackCenter);
   }, [mapReady, fallbackCenter, followUser]);
+
+  /* ---------- 自动根据路线调整视野（results / detail） ---------- */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+
+    // 1) 详情页：优先 fit highlightedPath
+    if (highlightedPath && highlightedPath.length >= 2) {
+      requestAnimationFrame(() => fitToLatLngPaths([highlightedPath]));
+      const t = window.setTimeout(() => fitToLatLngPaths([highlightedPath]), 150);
+      return () => window.clearTimeout(t);
+    }
+
+    // 2) results 页：fit 所有 routes
+    if (paths && paths.length > 0) {
+      const all = paths
+        .map((p) => p.path)
+        .filter((p) => p && p.length >= 2);
+
+      if (!all.length) return;
+
+      requestAnimationFrame(() => fitToLatLngPaths(all));
+      const t = window.setTimeout(() => fitToLatLngPaths(all), 150);
+      return () => window.clearTimeout(t);
+    }
+  }, [mapReady, highlightedPath, paths]);
+
 
   /* ---------- 当前用户位置 marker ---------- */
   useEffect(() => {

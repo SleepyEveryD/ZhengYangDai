@@ -23,17 +23,17 @@ export function useRideUploader() {
       // ✅ 2️⃣ 构造 confirm payload（必须包含 status）
       const { uploadStatus, ...payload } = ride;
 
-      if (payload.status !== 'CONFIRMED') {
-        console.warn('⚠️ ride is not CONFIRMED, skip upload');
-        return;
-      }
+     
 
       try {
-        console.log('⬆️ confirming ride', payload.id);
+        if (payload.status == 'DRAFT') {
+          console.log('⬆️ Saving ride', payload.id);
+          await api.put(`/rides/${payload.id}/save`, payload);
 
-        // ✅ 3️⃣ 只调用 confirm（一次性完成）
-        await api.post(`/rides/${payload.id}/confirm`, payload);
-
+        }else{
+          console.log('⬆️ confirming ride', payload.id);
+          await api.post(`/rides/${payload.id}/confirm`, payload);
+        }
         // ✅ 4️⃣ 标记已上传
         const updatedRide = {
           ...ride,

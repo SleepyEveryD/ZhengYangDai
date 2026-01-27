@@ -80,7 +80,7 @@ export default function PathDetail() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate("/path/results")}
+          onClick={() => navigate(-1)}
           className="h-10 w-10"
         >
           <ArrowLeftIcon className="w-5 h-5" />
