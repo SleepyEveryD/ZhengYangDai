@@ -1,6 +1,7 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate,useParams } from "react-router-dom";
 import { Button } from "./ui/button";
+
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -11,49 +12,33 @@ import {
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import type { Ride } from "../types/ride";
-
-const mockRides: Ride[] = [
-  {
-    id: "1",
-    date: "2025-11-07",
-    distance: 8.5,
-    duration: 1800,
-    avgSpeed: 17.0,
-    maxSpeed: 28.5,
-    path: [
-      [39.9042, 116.4074],
-      [39.9142, 116.4174],
-      [39.9242, 116.4274],
-    ],
-    issues: [
-      {
-        id: "i1",
-        type: "pothole",
-        location: [39.9142, 116.4174],
-        severity: "medium",
-        status: "confirmed",
-        date: "2025-11-07",
-        autoDetected: true,
-      },
-    ],
-  },
-  {
-    id: "2",
-    date: "2025-11-06",
-    distance: 12.3,
-    duration: 2520,
-    avgSpeed: 17.5,
-    maxSpeed: 32.0,
-    path: [
-      [39.9042, 116.4074],
-      [39.9242, 116.4274],
-    ],
-    issues: [],
-  },
-];
+import { getMyRides } from "../hooks/rides.api";
+import { adaptRideFromApi } from "../adapters/ride.adapter";
 
 export default function RideHistory() {
   const navigate = useNavigate();
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getMyRides(1, 20)
+      .then((res) => {
+        if (!mounted) return;
+        setRides(res.items.map(adaptRideFromApi));
+      })
+      .catch((err) => {
+        console.error("[RIDES_FETCH_ERROR]", err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -78,9 +63,9 @@ export default function RideHistory() {
     });
   };
 
-  const totalDistance = mockRides.reduce((s, r) => s + r.distance, 0);
-  const totalTime = mockRides.reduce((s, r) => s + r.duration, 0);
-  const totalIssues = mockRides.reduce((s, r) => s + r.issues.length, 0);
+  const totalDistance = rides.reduce((s, r) => s + r.distance, 0);
+  const totalTime = rides.reduce((s, r) => s + r.duration, 0);
+  const totalIssues = rides.reduce((s, r) => s + r.issues.length, 0);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -96,7 +81,9 @@ export default function RideHistory() {
         </Button>
         <div className="flex-1">
           <h2 className="text-gray-900">My Rides</h2>
-          <p className="text-gray-500">{mockRides.length} rides</p>
+          <p className="text-gray-500">
+            {loading ? "…" : `${rides.length} rides`}
+          </p>
         </div>
       </div>
 
@@ -125,12 +112,12 @@ export default function RideHistory() {
 
         {/* Ride List */}
         <div className="p-4 space-y-3">
-          {mockRides.map((ride) => (
+          {rides.map((ride) => (
             <Card
               key={ride.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() =>
-                navigate(`/rides/${ride.id}`, { state: { ride } })
+                navigate(`/rides/${ride.id}`)
               }
             >
               <CardContent className="p-4">
@@ -171,7 +158,7 @@ export default function RideHistory() {
             </Card>
           ))}
 
-          {mockRides.length === 0 && (
+          {!loading && rides.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center">
                 <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
