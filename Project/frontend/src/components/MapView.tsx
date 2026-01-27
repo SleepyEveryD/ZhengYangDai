@@ -16,19 +16,7 @@ type MapViewProps = {
   paths?: ColoredPath[]; 
   highlightedPath?: [number, number][];
   currentLocation?: [number, number];
-  
-
- /* onRoutesReady?: (payload: {
-    routes: Array<{
-      index: number;
-      summary?: string;
-      distance: number;
-      duration: number;
-      path: [number, number][];
-    }>;
-    pickedIndex: number;
-  }) => void;*/
-
+  plannedPath?: [number, number][];
   userPath?: [number, number][];
   issues?: IssueMarker[];
   onMapClick?: (latLng: [number, number]) => void;

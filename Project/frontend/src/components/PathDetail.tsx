@@ -129,9 +129,6 @@ export default function PathDetail() {
               </div>
             </CardContent>
           </Card>
-
-         
-
           {/* Road Segments */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -248,9 +245,19 @@ export default function PathDetail() {
 
       {/* Action Button */}
       <div className="p-4 border-t bg-white space-y-3">
-        <Button className="w-full h-14 bg-green-600 hover:bg-green-700">
-          Select This Route
-        </Button>
+       <Button
+  className="w-full h-14 bg-green-600 hover:bg-green-700"
+  onClick={() => {
+    navigate("/ride/recording", {
+      state: {
+        route: safeRoute,
+      },
+    });
+  }}
+>
+  Select This Route
+</Button>
+
 
         {/* Guest Login Prompt */}
         {!user && (

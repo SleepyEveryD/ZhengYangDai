@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   StopCircleIcon,
@@ -16,15 +16,15 @@ import { rideRouteService } from "../services/reportService";
 import type { Ride } from "../types/ride";
 import type { RideStreet } from "../types/rideStreet";
 import type { GeoJSON } from "geojson";
+import type { Route } from "../types/route";
 
 /**
  * TRACK_MODE:
  * - "real": 用真实 GPS 轨迹（watchPosition）
  * - "demo": 用预设路线 + 速度推进 + 少量 GPS 抖动（更像真实骑行）
  */
-const TRACK_MODE: "real" | "demo" = "demo";
-
-/**
+const TRACK_MODE: "real" | "demo" = "real";
+/**S
  * Demo 路线（[lat, lng]）
  * 这里是一条带转弯的小路线（点与点别太远，demo 更自然）
  */
@@ -44,6 +44,7 @@ const DEMO_ROUTE_TEMPLATE: [number, number][] = [
 const DEMO_SPEED_MPS = 5.5;
 /** GPS 抖动（米）：2~6 比较真实 */
 const DEMO_NOISE_M = 3;
+
 
 // 录制过滤参数（骑行友好）
 const MIN_DIST_M = 50; // demo/真实都更自然一点
@@ -66,6 +67,7 @@ const haversineMeters = (a: [number, number], b: [number, number]) => {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(q));
 };
+
 
 const bearingDeg = (a: [number, number], b: [number, number]) => {
   const [lat1, lng1] = a.map(toRad) as [number, number];
@@ -127,10 +129,15 @@ const computeStatsFromTrack = (track: TrackPoint[]) => {
   const maxKmh = maxMps * 3.6;
 
   return { distKm, durationSec, avgKmh, maxKmh };
+  
 };
+
 
 export default function RideRecording() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const selectedRoute = location.state?.route as Route | undefined;
+
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -447,14 +454,16 @@ export default function RideRecording() {
     <div className="h-screen flex flex-col bg-white relative">
       <div className="flex-1 relative">
         <MapView
-          userPath={path}
-          currentLocation={path.length ? path[path.length - 1] : undefined}
-          issues={detectedIssues.map((issue) => ({
-            location: issue.location,
-            type: issue.type,
-          }))}
-          followUser
-        />
+  userPath={path}
+  highlightedPath={selectedRoute?.path}
+  currentLocation={path.length ? path[path.length - 1] : undefined}
+  issues={detectedIssues.map((issue) => ({
+    location: issue.location,
+    type: issue.type,
+  }))}
+  followUser
+/>
+
       </div>
 
       <motion.div
@@ -524,7 +533,7 @@ export default function RideRecording() {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50"
       >
         <Button
           className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
