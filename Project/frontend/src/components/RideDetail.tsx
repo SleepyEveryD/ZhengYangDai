@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   ArrowLeftIcon,
@@ -14,11 +14,55 @@ import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import MapView from "./MapView";
 import type { Ride } from "../types/ride";
+import { getRideDetail } from "../hooks/ride-detail.api";
+import { adaptRideDetailFromApi } from "../adapters/ride-detail.adapter";
+
 
 export default function RideDetail() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const ride = (location.state as { ride?: Ride })?.ride;
+  const { id: rideId } = useParams<{ id: string }>();
+
+  console.log("[RideDetail] rideId =", rideId);
+
+  const [ride, setRide] = useState<Ride | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!rideId) {
+      setLoading(false);
+      return;
+    }
+  
+    let mounted = true;
+  
+    getRideDetail(rideId)
+      .then((res) => {
+        console.log("[RideDetail] raw api data =", res);
+  
+        if (!mounted) return;
+        setRide(adaptRideDetailFromApi(res.data));
+      })
+      .catch((err) => {
+        console.error("[RIDE_DETAIL_FETCH_ERROR]", err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+  
+    return () => {
+      mounted = false;
+    };
+  }, [rideId]);
+  
+  /* ---------------- loading / empty ---------------- */
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Loading ride…</p>
+      </div>
+    );
+  }
 
   if (!ride) {
     return (
@@ -27,6 +71,8 @@ export default function RideDetail() {
       </div>
     );
   }
+
+  /* ---------------- helpers ---------------- */
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -92,6 +138,8 @@ export default function RideDetail() {
 
   const calories = Math.round(ride.distance * 30);
 
+  /* ---------------- UI ---------------- */
+
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
@@ -131,10 +179,26 @@ export default function RideDetail() {
           {/* Stats */}
           <Card>
             <CardContent className="p-4 grid grid-cols-2 gap-4">
-              <Stat icon={<RulerIcon />} label="Distance" value={`${ride.distance} km`} />
-              <Stat icon={<ClockIcon />} label="Duration" value={formatTime(ride.duration)} />
-              <Stat icon={<TrendingUpIcon />} label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
-              <Stat icon={<ZapIcon />} label="Max Speed" value={`${ride.maxSpeed} km/h`} />
+              <Stat
+                icon={<RulerIcon />}
+                label="Distance"
+                value={`${ride.distance} km`}
+              />
+              <Stat
+                icon={<ClockIcon />}
+                label="Duration"
+                value={formatTime(ride.duration)}
+              />
+              <Stat
+                icon={<TrendingUpIcon />}
+                label="Avg Speed"
+                value={`${ride.avgSpeed} km/h`}
+              />
+              <Stat
+                icon={<ZapIcon />}
+                label="Max Speed"
+                value={`${ride.maxSpeed} km/h`}
+              />
             </CardContent>
           </Card>
 
@@ -192,6 +256,8 @@ export default function RideDetail() {
     </div>
   );
 }
+
+/* ---------------- Stat ---------------- */
 
 function Stat({
   icon,

@@ -2,9 +2,11 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Query
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { toGeoJSONPointFromFrontend } from '../util/geojson.util';
+
 
 interface ConfirmRideInput {
   rideId: string;
@@ -273,16 +275,92 @@ export class RideService {
     return ride;
   }
 
-  /**
-   * 获取用户的所有 Rides
-   */
-  async getUserRides(userId: string) {
-    return this.prisma.ride.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        reports: true,
+
+  async getUserRides(params: {
+    userId: string;
+    page: number;
+    limit: number;
+  }) {
+    const { userId, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.ride.findMany({
+  where: { userId },
+  orderBy: { startedAt: "desc" },
+  skip,
+  take: limit,
+  select: {
+    id: true,
+    startedAt: true,
+    endedAt: true,
+    issues: {
+      select: {
+        id: true,
+        issueType: true,
+        createdAt: true,
+      },
+    },
+  },
+}),
+      this.prisma.ride.count({
+        where: { userId },
+      }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
+  async getRideDetail(userId: string, rideId: string) {
+    const ride = await this.prisma.ride.findFirst({
+      where: {
+        id: rideId,
+        userId, // 🔒 防止越权
+      },
+      select: {
+        id: true,
+        startedAt: true,
+        endedAt: true,
+        routeGeoJson: true, // ✅ 路线数据
+        issues: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            issueType: true,
+            locationJson: true,
+            notes: true,
+            createdAt: true,
+          },
+        },
+        reports: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            street: {
+              select: {
+                id: true,
+                name: true,
+                city: true,
+              },
+            },
+          },
+        },
       },
     });
+  
+    if (!ride) {
+      throw new NotFoundException("Ride not found");
+    }
+  
+    return ride;
   }
+  
+  
+  
 }
