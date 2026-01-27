@@ -8,9 +8,10 @@ export interface RideListIssue {
 
 export interface RideListItem {
   id: string;
+  status: "DRAFT" | "CONFIRMED";
   startedAt: string;
   endedAt: string;
-  issues: RideListIssue[]; // ✅ 新增
+  issues: RideListIssue[]; 
 }
 
 export interface RideListResponse {

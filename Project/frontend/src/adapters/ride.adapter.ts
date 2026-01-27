@@ -12,16 +12,20 @@ export function adaptRideFromApi(item: RideListItem): Ride {
 
   return {
     id: item.id,
+    status: item.status, 
     date: item.startedAt,
+
     distance: 0,
     duration,
     avgSpeed: 0,
     maxSpeed: 0,
+
     path: [],
+
     issues: item.issues.map((issue) => ({
       id: issue.id,
       type: issue.issueType.toLowerCase(),
-      location: [0, 0],          // 列表页不需要精确坐标
+      location: [0, 0], // 列表页不需要精确坐标
       severity: "medium",
       status: "confirmed",
       date: issue.createdAt,
