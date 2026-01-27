@@ -327,6 +327,7 @@ export class RideService {
       },
       select: {
         id: true,
+        status: true,
         startedAt: true,
         endedAt: true,
         routeGeoJson: true, // ✅ 路线数据

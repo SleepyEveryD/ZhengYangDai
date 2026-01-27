@@ -65,6 +65,7 @@ export function adaptRideDetailFromApi(
 
   const ride: Ride = {
     id: apiRide.id,
+    status:apiRide.status,
     date: apiRide.startedAt,
     distance: distanceKm,
     duration,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
@@ -13,19 +13,40 @@ import {
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import MapView from "./MapView";
+
 import type { Ride } from "../types/ride";
 import { getRideDetail } from "../hooks/ride-detail.api";
 import { adaptRideDetailFromApi } from "../adapters/ride-detail.adapter";
 
+import RideReportEditorDialog, {} from "./RideReportEditorDialog";
+import { buildSegmentsFromStreets } from "../utils/buildSegmentsFromStreets";
+
+import type { RoadConditionSegment } from "./RideReportEditorDialog";
+import { rideRouteService } from "../services/reportService";
+import type { GeoJSON } from "geojson";
 
 export default function RideDetail() {
   const navigate = useNavigate();
   const { id: rideId } = useParams<{ id: string }>();
 
-  console.log("[RideDetail] rideId =", rideId);
-
   const [ride, setRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Draft 编辑相关 state
+  const [showEditor, setShowEditor] = useState(false);
+  const [issues, setIssues] = useState<Ride["issues"]>([]);
+  const [segments, setSegments] = useState<RoadConditionSegment[]>([]);
+  const [streets, setStreets] = useState<RideStreet[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+
+  
+  const pathToGeoJson = (path: [number, number][]): GeoJSON.LineString => ({
+    type: "LineString",
+    coordinates: path.map(([lat, lng]) => [lng, lat]),
+  });
+
+
+  /* ---------------- fetch ride detail ---------------- */
 
   useEffect(() => {
     if (!rideId) {
@@ -35,44 +56,59 @@ export default function RideDetail() {
   
     let mounted = true;
   
-    getRideDetail(rideId)
-      .then((res) => {
-        console.log("[RideDetail] raw api data =", res);
-  
+    (async () => {
+      try {
+        const res = await getRideDetail(rideId);
         if (!mounted) return;
-        setRide(adaptRideDetailFromApi(res.data));
-      })
-      .catch((err) => {
+  
+        const adapted = adaptRideDetailFromApi(res.data);
+        setRide(adapted);
+  
+        // ✅ 用 path 现场构造 GeoJSON
+        let streets: RideStreet[] = [];
+  
+        if (adapted.path?.length >= 2) {
+          try {
+            const routeGeoJson = pathToGeoJson(adapted.path);
+            streets =
+              await rideRouteService.resolveStreetsFromRouteGeoJson(
+                routeGeoJson
+              );
+          } catch (err) {
+            console.error("[RIDE_DETAIL] resolve streets failed", err);
+          }
+        } else {
+          console.warn(
+            "[RIDE_DETAIL] path too short to resolve streets",
+            adapted.path
+          );
+        }
+  
+        // ✅ 用 streets 派生 segments
+        setIssues(adapted.issues);
+        setSegments(
+          adapted.roadConditionSegments?.length
+            ? adapted.roadConditionSegments
+            : buildSegmentsFromStreets({
+                ...adapted,
+                streets,
+              })
+        );
+      } catch (err) {
         console.error("[RIDE_DETAIL_FETCH_ERROR]", err);
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    })();
   
     return () => {
       mounted = false;
     };
   }, [rideId]);
   
-  /* ---------------- loading / empty ---------------- */
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Loading ride…</p>
-      </div>
-    );
-  }
-
-  if (!ride) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p>Ride record not found</p>
-      </div>
-    );
-  }
-
-  /* ---------------- helpers ---------------- */
+  
+  
+  /* ---------------- utils ---------------- */
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -136,9 +172,25 @@ export default function RideDetail() {
     }
   };
 
-  const calories = Math.round(ride.distance * 30);
+  /* ---------------- render ---------------- */
 
-  /* ---------------- UI ---------------- */
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Loading ride…</p>
+      </div>
+    );
+  }
+
+  if (!ride) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p>Ride record not found</p>
+      </div>
+    );
+  }
+
+  const calories = Math.round(ride.distance * 30);
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -152,7 +204,18 @@ export default function RideDetail() {
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
-        <h2 className="text-gray-900">Ride Details</h2>
+
+        <h2 className="text-gray-900 flex-1">Ride Details</h2>
+
+        {ride.status === "DRAFT" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEditor(true)}
+          >
+            Edit
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -160,7 +223,7 @@ export default function RideDetail() {
         <div className="h-64">
           <MapView
             userPath={ride.path}
-            issues={ride.issues.map((issue) => ({
+            issues={issues.map((issue) => ({
               location: issue.location,
               type: issue.type,
             }))}
@@ -174,6 +237,12 @@ export default function RideDetail() {
             <span className="text-gray-600">
               {formatDate(ride.date)}
             </span>
+
+            {ride.status === "DRAFT" && (
+              <Badge className="ml-2 bg-gray-100 text-gray-600">
+                Draft
+              </Badge>
+            )}
           </div>
 
           {/* Stats */}
@@ -211,23 +280,23 @@ export default function RideDetail() {
               </div>
               <div>
                 <p className="text-gray-600">Reported Issues</p>
-                <p className="text-gray-900">{ride.issues.length}</p>
+                <p className="text-gray-900">{issues.length}</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Issues */}
-          {ride.issues.length > 0 && (
+          {issues.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircleIcon className="w-5 h-5 text-gray-600" />
                 <span className="text-gray-900">
-                  Reported Issues ({ride.issues.length})
+                  Reported Issues ({issues.length})
                 </span>
               </div>
 
               <div className="space-y-3">
-                {ride.issues.map((issue) => (
+                {issues.map((issue) => (
                   <Card key={issue.id}>
                     <CardContent className="p-4">
                       <div className="flex justify-between mb-2">
@@ -242,9 +311,6 @@ export default function RideDetail() {
                         {issue.location[0].toFixed(4)},{" "}
                         {issue.location[1].toFixed(4)}
                       </p>
-                      <Badge className="mt-2 bg-green-100 text-green-800">
-                        Confirmed
-                      </Badge>
                     </CardContent>
                   </Card>
                 ))}
@@ -253,11 +319,27 @@ export default function RideDetail() {
           )}
         </div>
       </div>
+
+      {/* Draft editor dialog */}
+      {ride.status === "DRAFT" && (
+        <RideReportEditorDialog
+          open={showEditor}
+          onOpenChange={setShowEditor}
+          ride={ride}
+          issues={issues}
+          segments={segments}
+          defaultTab="issues"
+          onChange={({ issues, segments }) => {
+            setIssues(issues);
+            setSegments(segments);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-/* ---------------- Stat ---------------- */
+/* ---------------- small component ---------------- */
 
 function Stat({
   icon,
