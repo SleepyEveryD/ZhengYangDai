@@ -24,6 +24,8 @@ import { buildSegmentsFromStreets } from "../utils/buildSegmentsFromStreets";
 import type { RoadConditionSegment } from "./RideReportEditorDialog";
 import { rideRouteService } from "../services/reportService";
 import type { GeoJSON } from "geojson";
+import { saveRideLocal } from "../services/rideStorage";
+
 
 export default function RideDetail() {
   const navigate = useNavigate();
@@ -109,6 +111,44 @@ export default function RideDetail() {
   
   
   /* ---------------- utils ---------------- */
+  const handleExitEdit = () => {
+    setIsEditing(false);
+    setShowEditor(false);
+  
+    if (ride) {
+      setIssues(ride.issues);
+      setSegments(ride.roadConditionSegments ?? []);
+    }
+  };
+  
+  const handleConfirmEdit = () => {
+    if (!ride) return;
+  
+    const confirmedAt = new Date().toISOString();
+  
+    const finalRide = {
+      ...ride,
+  
+      // ✅ 用编辑态的数据
+      issues,
+      roadConditionSegments: segments,
+  
+      // ✅ 状态更新
+      status: "CONFIRMED",
+      uploadStatus: "pending",
+      confirmedAt,
+      date: confirmedAt,
+    };
+  
+    // ✅ 只在这里写 localStorage
+    saveRideLocal(finalRide);
+  
+    // UI 收尾
+    setRide(finalRide);
+    setIsEditing(false);
+    setShowEditor(false);
+  };
+  
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -207,15 +247,37 @@ export default function RideDetail() {
 
         <h2 className="text-gray-900 flex-1">Ride Details</h2>
 
-        {ride.status === "DRAFT" && (
+        {ride.status === "DRAFT" && !isEditing && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowEditor(true)}
+            onClick={() => {
+              setIsEditing(true);
+              setShowEditor(true);
+            }}
           >
             Edit
           </Button>
         )}
+
+        {ride.status === "DRAFT" && isEditing && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExitEdit}>
+              Exit
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleConfirmEdit}
+            >
+              Confirm
+            </Button>
+          </div>
+        )}
+
+
+
+
       </div>
 
       <div className="flex-1 overflow-y-auto">
