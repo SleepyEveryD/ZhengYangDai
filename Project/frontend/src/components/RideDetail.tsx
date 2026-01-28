@@ -26,6 +26,12 @@ import { rideRouteService } from "../services/reportService";
 import type { GeoJSON } from "geojson";
 import { saveRideLocal } from "../services/rideStorage";
 import { RIDE_QUEUE_UPDATED } from "../constants/events.ts";
+import IssueList from "./IssueList";
+import RoadConditionList from "./RoadConditionList";
+import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
+
+
+
 
 /* ===================================================== */
 
@@ -42,6 +48,8 @@ export default function RideDetail() {
   const [segments, setSegments] = useState<RoadConditionSegment[]>([]);
   const [resolvedStreets, setResolvedStreets] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [reportTab, setReportTab] = useState<"issues" | "conditions">("issues");
+
 
   /* ---------------- utils ---------------- */
 
@@ -295,17 +303,23 @@ export default function RideDetail() {
               <Stat icon={<ZapIcon />} label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
-
-          {issues.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircleIcon className="w-5 h-5 text-gray-600" />
-                  <span>Reported Issues ({issues.length})</span>
-                </div>
-              </CardContent>
-            </Card>
+          {isEditing && (
+            <RoadConditionRequiredCard
+              hasSegments={segments.length > 0}
+              onOpenEditor={() => {
+                setReportTab("conditions");
+                setShowEditor(true);
+              }}
+            />
           )}
+
+
+
+          <IssueList issues={issues} />
+          <RoadConditionList segments={segments} />
+
+
+
         </div>
       </div>
 

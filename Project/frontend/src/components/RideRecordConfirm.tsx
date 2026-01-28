@@ -18,6 +18,10 @@ import { findNearestPathIndex } from "../utils/geo";
 import { useAuth } from '../auth/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Weather from "./Weather";
+import IssueList from "./IssueList";
+import RoadConditionList from "./RoadConditionList";
+import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
+
 
 import { mapUiIssueToRideIssue } from '../utils/issueMapper';
 
@@ -517,84 +521,8 @@ export default function RideRecordConfirm() {
           <div className="mb-4">
             <Weather/>
           </div>
-          {/* Detected Issues */}
-          {issues.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-900">
-                  Reported Issues ({issues.length})
-                </h3>
-                {pendingIssues.length > 0 && (
-                  <Badge className="bg-orange-100 text-orange-800">
-                    {pendingIssues.length} pending
-                  </Badge>
-                )}
-              </div>
+          <IssueList issues={issues} />
 
-              {showUnconfirmedWarning && pendingIssues.length > 0 && (
-                <Card className="bg-orange-50 border-orange-200 mb-3">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircleIcon className="w-5 h-5 text-orange-600 mt-0.5" />
-                      <p className="text-orange-900">
-                        {pendingIssues.length} issues pending confirmation, please review before saving.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="space-y-3">
-                {issues.map((issue) => (
-                  <Card key={issue.id} className={issue.status === 'pending' ? 'border-orange-300' : ''}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-gray-900">
-                              {getIssueTypeText(issue.type)}
-                            </span>
-                            <Badge className={getSeverityColor(issue.severity)} variant="secondary">
-                              {getSeverityText(issue.severity)}
-                            </Badge>
-                            {issue.autoDetected && (
-                              <Badge variant="outline">Auto-detected</Badge>
-                            )}
-                          </div>
-                          <p className="text-gray-600">
-                            Location: {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
-                          </p>
-                        </div>
-                        {issue.status === 'confirmed' && (
-                          <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                        )}
-                      </div>
-
-                      {issue.status === 'pending' && (
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            variant="outline"
-                            className="flex-1 h-10"
-                            onClick={() => handleIgnoreIssue(issue.id)}
-                          >
-                            <XIcon className="w-4 h-4 mr-2" />
-                            Ignore
-                          </Button>
-                          <Button
-                            className="flex-1 h-10 bg-orange-600 hover:bg-orange-700"
-                            onClick={() => handleConfirmIssue(issue.id)}
-                          >
-                            <CheckCircleIcon className="w-4 h-4 mr-2" />
-                            Confirm Report
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
           
 
           {issues.length === 0 && (
@@ -608,62 +536,19 @@ export default function RideRecordConfirm() {
           
 
           {/* Report Road Conditions Button */}
-          <Card className="bg-orange-50 border-2 border-orange-300">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <AlertCircleIcon className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-orange-900 font-medium mb-1">Required: Report Road Conditions</p>
-                  <p className="text-orange-800 text-sm">
-                    You must add at least one road condition segment before saving your ride data.
-                  </p>
-                </div>
-              </div>
-              <Button
-                className="w-full h-12 bg-orange-600 hover:bg-orange-700"
-                onClick={() => {
-                  setShowReportDialog(true);
-                  setReportTab('conditions');
-                }}
-              >
-                <MapPinIcon className="w-5 h-5 mr-2" />
-                {roadConditionSegments.length === 0 ? 'Add Road Conditions (Required)' : 'Edit Road Conditions'}
-              </Button>
-            </CardContent>
-          </Card>
+          <RoadConditionRequiredCard
+            hasSegments={roadConditionSegments.length > 0}
+            onOpenEditor={() => {
+              setReportTab("conditions");
+              setShowReportDialog(true);
+            }}
+          />
+
 
           {/* Road Condition Segments Preview */}
-          {conditionsConfirmed && roadConditionSegments.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-gray-900">
-                    Road Condition Segments ({roadConditionSegments.length})
-                  </h3>
-                </div>
-
-                <div className="space-y-3">
-                  {roadConditionSegments.map((segment) => (
-                    <Card key={segment.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{segment.name}</p>
-                            <p className="text-xs text-gray-600">
-                              {segment.pathCoordinates.length} points
-                            </p>
-                          </div>
-
-                          <Badge variant="secondary">
-                            {segment.condition}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
+          {conditionsConfirmed && (
+            <RoadConditionList segments={roadConditionSegments} />
+          )}
 
         </div>
       </div>
