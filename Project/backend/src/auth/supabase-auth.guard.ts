@@ -23,6 +23,11 @@ import {
     }
   
     async canActivate(context: ExecutionContext): Promise<boolean> {
+        const { data, error } = await this.supabase.auth.getUser(token);
+
+        console.log('SUPABASE ERROR:', error);
+         console.log('SUPABASE USER:', data?.user);
+         
       const req = context.switchToHttp().getRequest<Request>();
   
       const authHeader = req.headers.authorization;
