@@ -5,11 +5,11 @@ import {
     UnauthorizedException,
   } from '@nestjs/common';
   import { Request } from 'express';
-  import { createClient } from '@supabase/supabase-js';
+  import { createClient, SupabaseClient } from '@supabase/supabase-js';
   
   @Injectable()
   export class SupabaseAuthGuard implements CanActivate {
-    private supabase;
+    private supabase: SupabaseClient;
   
     constructor() {
       const supabaseUrl = process.env.SUPABASE_URL;
@@ -23,31 +23,36 @@ import {
     }
   
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const { data, error } = await this.supabase.auth.getUser(token);
-
-        console.log('SUPABASE ERROR:', error);
-         console.log('SUPABASE USER:', data?.user);
-         
+      // ✅ 1. req 在这里
       const req = context.switchToHttp().getRequest<Request>();
   
+      // ✅ 2. 先拿 header
       const authHeader = req.headers.authorization;
       if (!authHeader) {
         throw new UnauthorizedException('Missing Authorization header');
       }
   
+      // ✅ 3. 再解析 token
       const [type, token] = authHeader.split(' ');
       if (type !== 'Bearer' || !token) {
         throw new UnauthorizedException('Invalid Authorization format');
       }
   
-      const { data, error } = await this.supabase.auth.getUser(token);
+      // ✅ 4. 用 token
+      const result = await this.supabase.auth.getUser(token);
   
-      if (error || !data?.user) {
+      const user = result.data?.user;
+      const supabaseError = result.error;
+  
+      console.log('SUPABASE ERROR:', supabaseError);
+      console.log('SUPABASE USER:', user);
+  
+      if (supabaseError || !user) {
         throw new UnauthorizedException('Invalid or expired token');
       }
   
-      // ✅ 挂载 Supabase user
-      (req as any).user = data.user;
+      // ✅ 5. req 还在作用域里
+      (req as any).user = user;
   
       return true;
     }
