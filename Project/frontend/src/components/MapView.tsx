@@ -16,7 +16,19 @@ type MapViewProps = {
   paths?: ColoredPath[]; 
   highlightedPath?: [number, number][];
   currentLocation?: [number, number];
-  plannedPath?: [number, number][];
+  
+
+ /* onRoutesReady?: (payload: {
+    routes: Array<{
+      index: number;
+      summary?: string;
+      distance: number;
+      duration: number;
+      path: [number, number][];
+    }>;
+    pickedIndex: number;
+  }) => void;*/
+
   userPath?: [number, number][];
   issues?: IssueMarker[];
   onMapClick?: (latLng: [number, number]) => void;
@@ -69,7 +81,6 @@ export default function MapView({
   const mapRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
   const userMarkerRef = useRef<any>(null);
-  const lastPanRef = useRef(0);
 
 
   // overlays
@@ -123,23 +134,6 @@ export default function MapView({
     mapRef.current.setZoom(16);
     didSnapToUserRef.current = true;
   }, [mapReady, currentLocation]);
-  /* ---------- 跟随用户（平滑 panTo） ---------- 
-useEffect(() => {
-  if (!mapReady || !mapRef.current) return;
-  if (!followUser) return;
-  if (!currentLocation) return;
-
-  const now = Date.now();
-  if (now - lastPanRef.current < 500) return; // 500ms 跟随一次，防抖
-  lastPanRef.current = now;
-
-  mapRef.current.panTo({
-    lat: currentLocation[0],
-    lng: currentLocation[1],
-  });
-}, [mapReady, followUser, currentLocation]);
-
-
 
   /* ---------- Init Map (只执行一次) ---------- */
   useEffect(() => {
@@ -226,9 +220,8 @@ useEffect(() => {
   }, [mapReady, onMapClick]);
   
 
-  /* ---------- userPath 首次可用时 fitBounds 一次 ---------- ***/
+  /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
   useEffect(() => {
-    
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     if (!followUser) return;
     if (didFitBoundsRef.current) return;
@@ -242,7 +235,7 @@ useEffect(() => {
   }, [mapReady, userPath]);
 
   /* ---------- 更新中心点（仅在 followUser=true 时跟随） ---------- */
- useEffect(() => {
+  useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (!followUser) return;
 
@@ -250,7 +243,7 @@ useEffect(() => {
   }, [mapReady, fallbackCenter, followUser]);
 
   /* ---------- 自动根据路线调整视野（results / detail） ---------- */
- /* useEffect(() => {
+  useEffect(() => {
     if (!mapReady || !mapRef.current) return;
 
     // 1) 详情页：优先 fit highlightedPath
@@ -273,7 +266,7 @@ useEffect(() => {
       return () => window.clearTimeout(t);
     }
   }, [mapReady, highlightedPath, paths]);
-*/
+
 
   /* ---------- 当前用户位置 marker ---------- */
   useEffect(() => {
