@@ -11,6 +11,7 @@ import { TestModule } from './debug/debug.module';
 import {RideModule} from './rides/ride.module';
 import { ReportModule } from "./report/report.module";
 import { MapModule } from './map/map.module';
+import { ProfileModule } from "./profile/profile.module";
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { MapModule } from './map/map.module';
     TestModule, // test route
     RideModule,
     ReportModule,
-    MapModule
+    MapModule,
+    ProfileModule
 
   ],
   controllers: [AppController],
