@@ -262,7 +262,7 @@ export class RideService {
     const ride = await this.prisma.ride.findUnique({
       where: { id: rideId },
       include: {
-        reports: true,
+        //reports: true,
       },
     });
 
@@ -281,7 +281,7 @@ export class RideService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
-        reports: true,
+       // reports: true,
       },
     });
   }
