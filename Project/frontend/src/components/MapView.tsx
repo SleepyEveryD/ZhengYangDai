@@ -223,7 +223,7 @@ export default function MapView({
   }, [mapReady, userPath]);
 
   /* ---------- 更新中心点（仅在 followUser=true 时跟随） ---------- */
-  useEffect(() => {
+ useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (!followUser) return;
 
@@ -231,7 +231,7 @@ export default function MapView({
   }, [mapReady, fallbackCenter, followUser]);
 
   /* ---------- 自动根据路线调整视野（results / detail） ---------- */
-  useEffect(() => {
+ /* useEffect(() => {
     if (!mapReady || !mapRef.current) return;
 
     // 1) 详情页：优先 fit highlightedPath

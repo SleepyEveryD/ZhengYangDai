@@ -452,7 +452,7 @@ export default function RideRecording() {
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
-      <div className="flex-1 relative">
+      <div className="flex-1 relative ">
         <MapView
   userPath={path}
   highlightedPath={selectedRoute?.path}
@@ -536,11 +536,14 @@ export default function RideRecording() {
         className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50"
       >
         <Button
-          className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
-          onClick={handleStop}
-        >
-          <StopCircleIcon className="w-10 h-10" />
-        </Button>
+  className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
+  onClick={(e) => {
+    console.log("🟥 STOP BUTTON CLICKED", e);
+    handleStop();
+  }}
+>
+  <StopCircleIcon className="w-10 h-10" />
+</Button>
       </motion.div>
 
       {detectedIssues.length > 0 && (

@@ -15,6 +15,8 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import MapView from "./MapView";
 import type { Route } from "../types/route";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { saveRideLocal } from '../services/rideStorage';
+
 
 
 export default function PathDetail() {
@@ -245,9 +247,25 @@ export default function PathDetail() {
 
       {/* Action Button */}
       <div className="p-4 border-t bg-white space-y-3">
-       <Button
+     <Button
   className="w-full h-14 bg-green-600 hover:bg-green-700"
   onClick={() => {
+    const now = new Date();
+
+    const ride = {
+      id: crypto.randomUUID(),
+      userId: user?.id ?? null,   // ✅ 未登录也能用
+      startedAt: now,
+      endedAt: null,
+      routeGeoJson: null,
+    };
+
+    console.log("SelectRoute>> start ride at", now);
+
+    // ① 保存 currentRide
+    saveRideLocal(ride);
+
+    // ② 带 route 跳转到 recording
     navigate("/ride/recording", {
       state: {
         route: safeRoute,
@@ -257,6 +275,7 @@ export default function PathDetail() {
 >
   Select This Route
 </Button>
+
 
 
         {/* Guest Login Prompt */}
