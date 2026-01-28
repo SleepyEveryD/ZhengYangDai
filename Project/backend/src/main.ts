@@ -5,7 +5,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: [
+      'http://localhost:5173',                // 本地开发
+      'https://zheng-yang-dai.vercel.app',     // 你的 Vercel 域名
+    ],
+
     credentials: true,
   });
 
