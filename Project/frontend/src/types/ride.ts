@@ -13,4 +13,5 @@ export type Ride = {
   // routeGeometry ❌ 前端不用直接接 geography
   streets?: RideStreet[]; // 如果你 include 了
   issues?: Issue[];       // 如果是聚合结果
+  
 };
