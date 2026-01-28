@@ -11,6 +11,7 @@ export interface RideDetailIssueApi {
 
 export interface RideDetailApiResponse {
     id: string;
+    status:"DRAFT" | "CONFIRMED";
     startedAt: string;
     endedAt: string;
     routeGeoJson?: {

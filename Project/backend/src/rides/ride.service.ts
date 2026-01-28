@@ -127,8 +127,16 @@ export class RideService {
           ${new Date(startedAt)},
           ${new Date(endedAt)}
         )
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE
+        SET
+          "routeGeoJson"  = EXCLUDED."routeGeoJson",
+          "routeGeometry" = EXCLUDED."routeGeometry",
+          "startedAt"     = EXCLUDED."startedAt",
+          "endedAt"       = EXCLUDED."endedAt",
+          status          = 'CONFIRMED'
+        WHERE "Ride".status = 'DRAFT'
       `;
+
   
       /* --------------------------------
        * 2. Streets & StreetReports
@@ -283,31 +291,32 @@ export class RideService {
   }) {
     const { userId, page, limit } = params;
     const skip = (page - 1) * limit;
-
+  
     const [items, total] = await Promise.all([
       this.prisma.ride.findMany({
-  where: { userId },
-  orderBy: { startedAt: "desc" },
-  skip,
-  take: limit,
-  select: {
-    id: true,
-    startedAt: true,
-    endedAt: true,
-    issues: {
-      select: {
-        id: true,
-        issueType: true,
-        createdAt: true,
-      },
-    },
-  },
-}),
+        where: { userId },
+        orderBy: { startedAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          status: true, 
+          startedAt: true,
+          endedAt: true,
+          issues: {
+            select: {
+              id: true,
+              issueType: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
       this.prisma.ride.count({
         where: { userId },
       }),
     ]);
-
+  
     return {
       items,
       pagination: {
@@ -317,7 +326,7 @@ export class RideService {
       },
     };
   }
-
+  
   async getRideDetail(userId: string, rideId: string) {
     const ride = await this.prisma.ride.findFirst({
       where: {
@@ -326,6 +335,7 @@ export class RideService {
       },
       select: {
         id: true,
+        status: true,
         startedAt: true,
         endedAt: true,
         routeGeoJson: true, // ✅ 路线数据

@@ -128,11 +128,20 @@ export default function RideHistory() {
                       {formatDate(ride.date)}
                     </span>
                   </div>
-                  {ride.issues.length > 0 && (
-                    <Badge className="bg-orange-100 text-orange-800">
-                      {ride.issues.length} issues
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {ride.issues.length > 0 && (
+                      <Badge className="bg-orange-100 text-orange-800">
+                        {ride.issues.length} issues
+                      </Badge>
+                    )}
+
+  {ride.status === "DRAFT" && (
+    <Badge className="bg-gray-100 text-gray-600">
+      Draft
+    </Badge>
+  )}
+</div>
+
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-3">
