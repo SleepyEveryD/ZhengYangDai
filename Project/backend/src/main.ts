@@ -7,7 +7,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173',                // 本地开发
-      'https://zheng-yang-dai.vercel.app',     // 你的 Vercel 域名
+      'https://zhengyangdai.onrender.com',     // 你的 Vercel 域名
     ],
 
     credentials: true,
