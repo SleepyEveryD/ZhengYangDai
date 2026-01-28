@@ -6,14 +6,17 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'http://localhost:5173',                // 本地开发
-      'https://zhengyangdai.onrender.com',     // 你的 Vercel 域名
+      'http://localhost:5173',          // 本地前端（如果有）
+      'http://localhost:3000',          // 本地测试
+      'https://zheng-yang-dai.vercel.app', // 线上前端
     ],
-
-    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false, // 你现在是 Bearer token，不用 cookie
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(3000);
 }
+
 
 bootstrap();
