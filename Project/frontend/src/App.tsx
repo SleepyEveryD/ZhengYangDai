@@ -1,11 +1,13 @@
-// App.tsx
 import { BrowserRouter } from "react-router-dom";
-import { AppWithUploader } from "./AppWithUploader";
+import { AppRoutes } from "./routes";
+import { useRideUploader } from "./hooks/useRideUploader";
 
 export default function App() {
+  useRideUploader();
+
   return (
     <BrowserRouter>
-      <AppWithUploader />
+      <AppRoutes />
     </BrowserRouter>
   );
 }

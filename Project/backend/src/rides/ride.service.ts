@@ -127,8 +127,16 @@ export class RideService {
           ${new Date(startedAt)},
           ${new Date(endedAt)}
         )
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE
+        SET
+          "routeGeoJson"  = EXCLUDED."routeGeoJson",
+          "routeGeometry" = EXCLUDED."routeGeometry",
+          "startedAt"     = EXCLUDED."startedAt",
+          "endedAt"       = EXCLUDED."endedAt",
+          status          = 'CONFIRMED'
+        WHERE "Ride".status = 'DRAFT'
       `;
+
   
       /* --------------------------------
        * 2. Streets & StreetReports

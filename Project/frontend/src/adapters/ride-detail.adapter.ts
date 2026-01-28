@@ -66,14 +66,14 @@ export function adaptRideDetailFromApi(
   const ride: Ride = {
     id: apiRide.id,
     status:apiRide.status,
+    startedAt:apiRide.startedAt,
+    endedAt:apiRide.endedAt,
     date: apiRide.startedAt,
     distance: distanceKm,
     duration,
     avgSpeed,
     maxSpeed: +maxSpeed.toFixed(1),
-
     path,
-
     issues: apiRide.issues.map((issue) => ({
       id: issue.id,
       type: issue.issueType.toLowerCase(),
