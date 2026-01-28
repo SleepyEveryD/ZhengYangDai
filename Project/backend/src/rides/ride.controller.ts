@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 
 import { RideService } from './ride.service';
@@ -88,24 +89,33 @@ export class RideController {
     });
   }
 
-  /**
-   * GET /rides/:rideId
-   * 获取 Ride 详情
-   */
-  @UseGuards(SupabaseAuthGuard)
-  @Get(':rideId')
-  async getRide(@Param('rideId') rideId: string) {
-    return this.rideService.getRide(rideId);
-  }
-
-  /**
-   * GET /rides
-   * 获取当前用户的所有 Rides
-   */
+  // myRide page
   @UseGuards(SupabaseAuthGuard)
   @Get()
-  async getUserRides(@Req() req: any) {
+  async getMyRides(
+    @Req() req: any,
+    @Query("page") page = "1",
+    @Query("limit") limit = "20"
+  ) {
     const userId = req.user.userId;
-    return this.rideService.getUserRides(userId);
+
+    return this.rideService.getUserRides({
+      userId,
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
+
+  @UseGuards(SupabaseAuthGuard)
+  @Get(":rideId")
+  async getRideDetail(
+    @Req() req: any,
+    @Param("rideId") rideId: string
+  ) {
+    const userId = req.user.userId;
+    return this.rideService.getRideDetail(userId, rideId);
+  }
+
+  
+  
 }
