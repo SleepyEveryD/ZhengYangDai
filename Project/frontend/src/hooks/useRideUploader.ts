@@ -21,7 +21,6 @@ export function useRideUploader() {
 
         const ride = JSON.parse(raw);
 
-        // ✅ 1️⃣ 只处理 pending
         if (ride.uploadStatus !== "pending") {
           console.log("⏭️ skip upload, uploadStatus:", ride.uploadStatus);
           return;
@@ -31,6 +30,8 @@ export function useRideUploader() {
 
         if (payload.status === "DRAFT") {
           console.log("⬆️ saving ride", payload.id);
+          console.log("⬆️ playlod", payload.issues);
+   
           await api.put(`/rides/${payload.id}/save`, payload);
         } else {
           console.log("⬆️ confirming ride", payload.id);
