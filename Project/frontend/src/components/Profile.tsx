@@ -1,4 +1,5 @@
 import { useNavigate, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import {
   ArrowLeftIcon,
@@ -12,33 +13,52 @@ import { Card, CardContent } from "./ui/card";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { useAuth } from "../auth/AuthContext";
 import { supabase } from "../lib/supabase";
+import { getProfileSummary } from "../hooks/profile.api";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // <- recommended: expose logout() from context
+  const { user } = useAuth();
+
+  const [totalRides, setTotalRides] = useState(0);
+  const [totalReports, setTotalReports] = useState(0);
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // ✅ Robust defaults (prevents toFixed crash)
+  useEffect(() => {
+    let mounted = true;
+
+    getProfileSummary()
+      .then((data) => {
+        if (!mounted) return;
+        setTotalRides(Number(data.ridesCount ?? 0));
+        setTotalReports(Number(data.reportsCount ?? 0));
+      })
+      .catch((err) => {
+        console.error("[PROFILE_FETCH_ERROR]", err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // 保持原逻辑：distance 目前只是占位
   const totalDistance = Number(user.totalDistance ?? 0);
-  const totalRides = Number(user.totalRides ?? 0);
-  const totalReports = Number(user.totalReports ?? 0);
 
   const handleLogout = async (
-  e: React.MouseEvent<HTMLButtonElement>
-) => {
-  e.preventDefault();
-  e.stopPropagation();
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    console.error(error);
-    return;
-  }
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error(error);
+      return;
+    }
 
-  navigate("/login", { replace: true });
-};
-
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -99,7 +119,9 @@ export default function Profile() {
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
               <CardContent className="p-4 text-center">
                 <BikeIcon className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <p className="text-gray-900 mb-1 font-semibold">{totalRides}</p>
+                <p className="text-gray-900 mb-1 font-semibold">
+                  {totalRides}
+                </p>
                 <p className="text-gray-600 text-sm">Total Rides</p>
               </CardContent>
             </Card>
@@ -115,7 +137,7 @@ export default function Profile() {
             </Card>
           </div>
 
-          {/* Weekly Chart */}
+          {/* ✅ Weekly Chart —— 原样完整保留 */}
           <Card>
             <CardContent className="p-4">
               <h3 className="text-gray-900 mb-4 font-semibold">
@@ -123,7 +145,10 @@ export default function Profile() {
               </h3>
               <div className="h-32 flex items-end justify-between gap-2">
                 {[12, 8, 15, 20, 18, 25, 22].map((height, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center">
+                  <div
+                    key={index}
+                    className="flex-1 flex flex-col items-center"
+                  >
                     <div
                       className="w-full bg-green-500 rounded-t transition-all hover:bg-green-600"
                       style={{ height: `${(height / 25) * 100}%` }}
@@ -151,7 +176,9 @@ export default function Profile() {
                     <BikeIcon className="w-6 h-6 text-green-600" />
                     <div>
                       <p className="text-gray-900 font-medium">My Rides</p>
-                      <p className="text-gray-500 text-sm">{totalRides} records</p>
+                      <p className="text-gray-500 text-sm">
+                        {totalRides} records
+                      </p>
                     </div>
                   </div>
                   <ArrowLeftIcon className="w-5 h-5 text-gray-400 rotate-180" />
@@ -183,7 +210,11 @@ export default function Profile() {
           </div>
 
           {/* Logout */}
-          <Button variant="outline" className="w-full h-12" onClick={handleLogout}>
+          <Button
+            variant="outline"
+            className="w-full h-12"
+            onClick={handleLogout}
+          >
             <LogOutIcon className="w-5 h-5 mr-2" />
             Log Out
           </Button>

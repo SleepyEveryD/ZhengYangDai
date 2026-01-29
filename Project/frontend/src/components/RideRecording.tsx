@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   StopCircleIcon,
@@ -16,6 +16,7 @@ import { rideRouteService } from "../services/reportService";
 import type { Ride } from "../types/ride";
 import type { RideStreet } from "../types/rideStreet";
 import type { GeoJSON } from "geojson";
+import type { Route } from "../types/route";
 
 /**
  * TRACK_MODE:
@@ -55,6 +56,62 @@ const haversineMeters = (a: [number, number], b: [number, number]) => {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(q));
 };
+const isOffRoute = (
+  current: [number, number],
+  route: [number, number][]
+) => {
+  if (!window.google?.maps || route.length < 2) return false;
+
+  const google = window.google;
+
+  const point = new google.maps.LatLng(current[0], current[1]);
+  const polyline = new google.maps.Polyline({
+    path: route.map(([lat, lng]) => ({ lat, lng })),
+  });
+
+  // tolerance：单位是「度」，约 30 米
+  return !google.maps.geometry.poly.isLocationOnEdge(
+    point,
+    polyline,
+    0.0005
+  );
+};
+
+const findClosestRouteIndex = (
+  route: [number, number][],
+  current: [number, number]
+) => {
+  let minDist = Infinity;
+  let closestIndex = 0;
+
+  for (let i = 0; i < route.length; i++) {
+    const d = haversineMeters(route[i], current);
+    if (d < minDist) {
+      minDist = d;
+      closestIndex = i;
+    }
+  }
+
+  return closestIndex;
+};
+
+const splitRouteByProgress = (
+  route: [number, number][],
+  current: [number, number] | undefined
+) => {
+  if (!current || route.length < 2) {
+    return { passed: [], remaining: route };
+  }
+
+  const idx = findClosestRouteIndex(route, current);
+
+  return {
+    passed: route.slice(0, idx + 1),
+    remaining: route.slice(idx),
+  };
+};
+
+
 
 const bearingDeg = (a: [number, number], b: [number, number]) => {
   const [lat1, lng1] = a.map(toRad) as [number, number];
@@ -118,10 +175,16 @@ const computeStatsFromTrack = (track: TrackPoint[]) => {
   const maxKmh = maxMps * 3.6;
 
   return { distKm, durationSec, avgKmh, maxKmh };
+  
 };
+
 
 export default function RideRecording() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const selectedRoute = location.state?.route as Route | undefined;
+  const isReRoutingRef = useRef(false);
+
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -182,6 +245,70 @@ export default function RideRecording() {
       setPath(trackRef.current.map((x) => [x.lat, x.lng]));
     }
   };
+  const currentLocation: [number, number] | undefined =
+  path.length > 0 ? path[path.length - 1] : undefined;
+ const rerouteFromCurrentLocation = () => {
+  if (!window.google?.maps) {
+    isReRoutingRef.current = false; // ✅ 解锁
+    return;
+  }
+
+  if (!selectedRoute?.path || !currentLocation) {
+    isReRoutingRef.current = false; // ✅ 解锁
+    return;
+  }
+
+  const google = window.google;
+
+  const destination =
+    selectedRoute.path[selectedRoute.path.length - 1];
+
+  const directionsService = new google.maps.DirectionsService();
+
+  directionsService.route(
+    {
+      origin: {
+        lat: currentLocation[0],
+        lng: currentLocation[1],
+      },
+      destination: {
+        lat: destination[0],
+        lng: destination[1],
+      },
+      travelMode: google.maps.TravelMode.BICYCLING,
+    },
+    (result: any, status: any) => {
+      if (status === "OK" && result.routes?.length) {
+        const steps = result.routes[0].legs[0].steps;
+
+const newPath: [number, number][] = steps.flatMap(
+  (step: any) =>
+    step.path.map(
+      (p: any) => [p.lat(), p.lng()] as [number, number]
+    )
+);
+
+        navigate(location.pathname, {
+          replace: true,
+          state: {
+            ...location.state,
+            route: {
+              ...selectedRoute,
+              path: newPath,
+            },
+          },
+        });
+
+        toast.success("Route updated");
+      } else {
+        toast.error("Failed to recalculate route");
+      }
+
+      // ✅ 无论成功还是失败，都在这里解锁
+      isReRoutingRef.current = false;
+    }
+  );
+};
 
   /**
    * ✅ 关键：准备 demo 路线（沿道路）
@@ -280,6 +407,24 @@ export default function RideRecording() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 🚨 Off-route detection & re-routing
+useEffect(() => {
+  if (!selectedRoute?.path) return;
+  if (!currentLocation) return;
+  if (isReRoutingRef.current) return;
+  if (!window.google?.maps?.geometry) return;
+  const off = isOffRoute(currentLocation, selectedRoute.path);
+
+  if (off) {
+    console.log("🚨 Off route, re-routing...");
+    isReRoutingRef.current = true;
+    rerouteFromCurrentLocation();
+  }
+}, [currentLocation, selectedRoute?.path]);
+// 🧭 Re-route from current location (Google Maps like)
+
+
+
 
   // 计时：只负责 UI 时间；距离/速度用真实 track 算
   useEffect(() => {
@@ -480,16 +625,84 @@ export default function RideRecording() {
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
-      <div className="flex-1 relative">
-        <MapView
-          userPath={path}
-          currentLocation={path.length ? path[path.length - 1] : undefined}
-          issues={detectedIssues.map((issue) => ({
-            location: issue.location,
-            type: issue.type,
-          }))}
-          followUser
-        />
+      <div className="flex-1 relative ">
+       {/* ===== Map ===== */}
+<MapView
+  
+  userPath={path}
+
+  /** 当前定位点 */
+  currentLocation={path.length ? path[path.length - 1] : undefined}
+
+  /** 路况问题 */
+  issues={detectedIssues.map((issue) => ({
+    location: issue.location,
+    type: issue.type,
+  }))}
+  followUser
+
+  /** 路线显示 */
+  paths={(() => {
+    // 没有规划路线，直接不画导航
+    if (!selectedRoute?.path || selectedRoute.path.length < 2) {
+      return [];
+    }
+
+    // 当前定位
+    const current =
+      path.length > 0 ? path[path.length - 1] : undefined;
+
+    if (!current) {
+      return [
+        {
+          id: "route-all",
+          path: selectedRoute.path,
+          color: "#2563eb",
+          weight: 6,
+        },
+      ];
+    }
+
+    // 找最近的路线点
+    let minDist = Infinity;
+    let closestIndex = 0;
+
+    for (let i = 0; i < selectedRoute.path.length; i++) {
+      const d = haversineMeters(
+        selectedRoute.path[i],
+        current
+      );
+      if (d < minDist) {
+        minDist = d;
+        closestIndex = i;
+      }
+    }
+
+    // 切割路线
+    const passed = selectedRoute.path.slice(
+      0,
+      closestIndex + 1
+    );
+    const remaining = selectedRoute.path.slice(closestIndex);
+
+    return [
+      {
+        id: "route-passed",
+        path: passed,
+        color: "#94a3b8", // 灰色：已走
+        weight: 6,
+      },
+      {
+        id: "route-remaining",
+        path: remaining,
+        color: "#2563eb", // 蓝色：未走（高亮）
+        weight: 6,
+      },
+    ];
+  })()}
+/>
+
+
       </div>
 
       <motion.div
@@ -559,14 +772,17 @@ export default function RideRecording() {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50"
       >
         <Button
-          className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
-          onClick={handleStop}
-        >
-          <StopCircleIcon className="w-10 h-10" />
-        </Button>
+  className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
+  onClick={(e) => {
+    console.log("🟥 STOP BUTTON CLICKED", e);
+    handleStop();
+  }}
+>
+  <StopCircleIcon className="w-10 h-10" />
+</Button>
       </motion.div>
 
       {detectedIssues.length > 0 && (
