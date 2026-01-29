@@ -87,6 +87,7 @@ export function adaptRideDetailFromApi(
       status: "confirmed",
       date: issue.createdAt,
       autoDetected: false,
+      notes:issue.notes,
     })),
   };
 
