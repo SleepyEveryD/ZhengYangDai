@@ -201,8 +201,6 @@ export default function RideRecording() {
 
   const [path, setPath] = useState<[number, number][]>([]);
   const [detectedIssues, setDetectedIssues] = useState<Issue[]>([]);
-  const [showIssueAlert, setShowIssueAlert] = useState(false);
-  const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
   const baseRef = useRef<[number, number] | null>(null);
 
@@ -486,27 +484,6 @@ useEffect(() => {
       demoTRef.current = tt;
 
       pushPoint(next, Date.now());
-
-      // issue demo
-      if (Math.random() < 0.03) {
-        const issueLoc: [number, number] = [
-          next[0] + (Math.random() - 0.5) * metersToLat(5),
-          next[1] + (Math.random() - 0.5) * metersToLng(5, next[0]),
-        ];
-
-        const newIssue: Issue = {
-          id: `issue-${Date.now()}`,
-          type: "pothole",
-          location: issueLoc,
-          severity: "medium",
-          status: "pending",
-          date: new Date().toISOString(),
-          autoDetected: true,
-        };
-
-        setCurrentIssue(newIssue);
-        setShowIssueAlert(true);
-      }
     }, 1000);
 
     return () => clearInterval(interval);
@@ -520,22 +497,6 @@ useEffect(() => {
       .padStart(2, "0")}`;
   };
 
-  const handleConfirmIssue = () => {
-    if (currentIssue) {
-      setDetectedIssues((prev) => [
-        ...prev,
-        { ...currentIssue, status: "confirmed" },
-      ]);
-    }
-    setShowIssueAlert(false);
-    setCurrentIssue(null);
-    toast.success("Issue confirmed");
-  };
-
-  const handleIgnoreIssue = () => {
-    setShowIssueAlert(false);
-    setCurrentIssue(null);
-  };
 
   const handleStop = async () => {
     const storedRide = getCurrentRide();
@@ -690,49 +651,6 @@ useEffect(() => {
           </div>
         </div>
       </motion.div>
-
-      <AnimatePresence>
-        {showIssueAlert && (
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-80"
-          >
-            <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 0.5, repeat: 3 }}
-            >
-              <AlertCircleIcon className="w-16 h-16 text-orange-600 mx-auto mb-4" />
-            </motion.div>
-
-            <h3 className="text-gray-900 text-center mb-2">
-              Road Issue Detected
-            </h3>
-            <p className="text-gray-600 text-center mb-6">
-              System auto-detected possible pothole. Confirm?
-            </p>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1 h-12"
-                onClick={handleIgnoreIssue}
-              >
-                <XIcon className="w-5 h-5 mr-2" />
-                Ignore
-              </Button>
-              <Button
-                className="flex-1 h-12 bg-orange-600 hover:bg-orange-700"
-                onClick={handleConfirmIssue}
-              >
-                <CheckCircleIcon className="w-5 h-5 mr-2" />
-                Confirm
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <motion.div
         initial={{ y: 100, opacity: 0 }}
