@@ -43,6 +43,8 @@ export class RideService {
     }
     
     //console.log('🧭 routeGeoJson',JSON.stringify(routeGeoJson, null, 2),);
+    
+    //console.log('🧭 routeGeoJson',JSON.stringify(routeGeoJson, null, 2),);
 
     try {
       await tx.$executeRaw`
@@ -108,6 +110,8 @@ export class RideService {
       /* --------------------------------
        * 1. Create / Confirm Ride
        * -------------------------------- */
+   
+      
    
       
       await tx.$executeRaw`

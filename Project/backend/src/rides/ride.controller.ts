@@ -17,7 +17,7 @@ import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 @Controller('rides')
 export class RideController {
   constructor(private readonly rideService: RideService) {
-    console.log('🔥 RideController LOADED');
+    //console.log('🔥 RideController LOADED');
   }
 
   /**

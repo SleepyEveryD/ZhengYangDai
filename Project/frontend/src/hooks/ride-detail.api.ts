@@ -23,6 +23,7 @@ export interface RideDetailApiResponse {
       locationJson?: {
         coordinates: [number, number];
       };
+      notes:string;
       createdAt: string;
     }[];
   }
