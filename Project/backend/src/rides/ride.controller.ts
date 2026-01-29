@@ -68,7 +68,7 @@ export class RideController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // ✅ 必须是 CONFIRMED
     if (body.status !== 'CONFIRMED') {
