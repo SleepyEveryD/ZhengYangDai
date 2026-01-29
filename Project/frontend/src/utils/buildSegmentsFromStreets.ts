@@ -24,6 +24,7 @@ export function buildSegmentsFromStreets(
     return {
       id: `segment-${i}-${start}-${end}`,
       name: street.name || `Unnamed road ${i + 1}`,
+      streetExternalId: street.externalId,
       startPoint: start,
       endPoint: end,
       condition: "GOOD", // ✅ 不依赖 enum
