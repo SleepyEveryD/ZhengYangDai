@@ -7,7 +7,7 @@ import {
   Get,
   UseGuards,
   Req,
-  BadRequestException
+  BadRequestException,
 } from '@nestjs/common';
 
 import { RideService } from './ride.service';
@@ -36,10 +36,9 @@ export class RideController {
   }
 
   /**
-   * GET /rides/:rideId
-   * 获取 Ride 详情
+   * POST /rides/:rideId/confirm
+   * Confirm Ride
    */
-
   @UseGuards(SupabaseAuthGuard)
   @Post(':rideId/confirm')
   async confirmRide(
@@ -48,32 +47,24 @@ export class RideController {
     @Req() req: any,
   ) {
     const userId = req.user.userId;
-  
-    // ✅ 必须是 CONFIRMED
+
     if (body.status !== 'CONFIRMED') {
-      throw new BadRequestException(
-        'Ride must be in CONFIRMED status to confirm',
-      );
+      throw new BadRequestException('Ride must be in CONFIRMED status to confirm');
     }
-  
-    // （可选但推荐）防止前端传错 rideId
+
     if (body.id && body.id !== rideId) {
       throw new BadRequestException('Ride ID mismatch');
     }
-  
+
     return this.rideService.confirmRide({
       rideId,
       userId,
       payload: body,
     });
   }
-  
-   
-   
 
   /**
    * GET /rides/:rideId
-   * 获取 Ride 详情
    */
   @UseGuards(SupabaseAuthGuard)
   @Get(':rideId')
@@ -83,7 +74,6 @@ export class RideController {
 
   /**
    * GET /rides
-   * 获取当前用户的所有 Rides
    */
   @UseGuards(SupabaseAuthGuard)
   @Get()

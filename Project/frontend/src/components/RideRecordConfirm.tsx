@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
-import { ArrowLeftIcon, CheckCircleIcon, XIcon, SaveIcon, ShareIcon, AlertCircleIcon, MapPinIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  XIcon,
+  SaveIcon,
+  ShareIcon,
+  AlertCircleIcon,
+  MapPinIcon,
+  PlusIcon,
+  EditIcon,
+  TrashIcon,
+} from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import MapView from './MapView';
@@ -12,16 +23,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { useNavigate,useLocation } from 'react-router-dom';
-import { getCurrentRide,saveRideLocal } from '../services/rideStorage';
-import { findNearestPathIndex } from "../utils/geo";
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { saveRideLocal } from '../services/rideStorage';
+import { findNearestPathIndex } from '../utils/geo';
 import { useAuth } from '../auth/AuthContext';
-import { Navigate } from 'react-router-dom';
-import Weather from "./Weather";
+import Weather from './Weather';
+import { supabase } from "../lib/supabase";
 
-import { mapUiIssueToRideIssue } from '../utils/issueMapper';
-
-enum RoadCondition {
+export enum RoadCondition {
   EXCELLENT = 'EXCELLENT',
   GOOD = 'GOOD',
   FAIR = 'FAIR',
@@ -31,18 +40,18 @@ enum RoadCondition {
 type RoadConditionSegment = {
   id: string;
   name: string;
+  streetExternalId: string;
   startPoint: number;
   endPoint: number;
   condition: RoadCondition;
+  notes?: string;
   pathCoordinates: [number, number][];
 };
 
-
 function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
-  
   if (!ride.streets?.length || !ride.path?.length) return [];
 
-  return ride.streets.map((street, i) => {
+  return ride.streets.map((street: any, i: number) => {
     const idx = street.positions[0].index;
 
     let start = idx;
@@ -59,74 +68,61 @@ function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
 
     return {
       id: `segment-${i}-${start}-${end}`,
-      name: street.name || `Unnamed road ${i + 1}`, // ✅ 关键
+      name: street.name || `Unnamed road ${i + 1}`,
+      streetExternalId: street.externalId, // ✅关键
       startPoint: start,
       endPoint: end,
       condition: RoadCondition.GOOD,
+      notes: '',
       pathCoordinates: ride.path.slice(start, end + 1),
     };
   });
 }
 
-
-
-
-
 export default function RideRecordConfirm() {
   const { user } = useAuth();
-
-  if (!user) {
-    // 没登录就回登录页（或给 guest 模式）
-    return <Navigate to="/login" replace />;
-  }
+  if (!user) return <Navigate to="/login" replace />;
 
   const navigate = useNavigate();
   const location = useLocation();
   const ride: Ride | null = location.state?.ride ?? null;
 
-  const [mapMode, setMapMode] = useState<"none" | "issue" | "segment">("none");
-
-
-  const [issues, setIssues] = useState(ride?.issues || []);
+  const [mapMode, setMapMode] = useState<'none' | 'issue' | 'segment'>('none');
+  const [issues, setIssues] = useState<any[]>(ride?.issues || []);
   const [showUnconfirmedWarning, setShowUnconfirmedWarning] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportTab, setReportTab] = useState<'issues' | 'conditions'>('issues');
-  const [roadConditionSegments, setRoadConditionSegments] = useState<RoadConditionSegment[]>([]);
 
-  
-  // New issue reporting state
+  const [roadConditionSegments, setRoadConditionSegments] = useState<RoadConditionSegment[]>([]);
   const [isAddingIssue, setIsAddingIssue] = useState(false);
   const [selectedIssueLocation, setSelectedIssueLocation] = useState<[number, number] | null>(null);
   const [newIssueType, setNewIssueType] = useState<'pothole' | 'crack' | 'obstacle'>('pothole');
   const [newIssueSeverity, setNewIssueSeverity] = useState<'low' | 'medium' | 'high'>('medium');
   const [newIssueDescription, setNewIssueDescription] = useState('');
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
-  
-  // Segment selection state
-  const [isSelectingSegment, setIsSelectingSegment] = useState(false);
+
   const [segmentStartPoint, setSegmentStartPoint] = useState<number | null>(null);
   const [segmentEndPoint, setSegmentEndPoint] = useState<number | null>(null);
-  const [segmentCondition, setSegmentCondition] = useState<'excellent' | 'good' | 'fair' | 'poor'>('good');
-  const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
-  
+
   const segmentStartRef = useRef<number | null>(segmentStartPoint);
   const segmentEndRef = useRef<number | null>(segmentEndPoint);
   const mapModeRef = useRef(mapMode);
-  const [highlightSegment, setHighlightSegment] = useState<{
-    startIndex: number;
-    endIndex: number;
-  } | null>(null);
+
+  const [highlightSegment, setHighlightSegment] = useState<{ startIndex: number; endIndex: number } | null>(null);
   const [conditionsConfirmed, setConditionsConfirmed] = useState(false);
 
+  useEffect(() => {
+    segmentStartRef.current = segmentStartPoint;
+  }, [segmentStartPoint]);
 
   useEffect(() => {
-    console.log('RideRecodConfirm>> issues updated:', issues);
-  }, [issues]);
-  
+    segmentEndRef.current = segmentEndPoint;
+  }, [segmentEndPoint]);
 
-  useEffect(() => { segmentStartRef.current = segmentStartPoint; }, [segmentStartPoint]);
-  useEffect(() => { segmentEndRef.current = segmentEndPoint; }, [segmentEndPoint]);
-  useEffect(() => { mapModeRef.current = mapMode; }, [mapMode]);
+  useEffect(() => {
+    mapModeRef.current = mapMode;
+  }, [mapMode]);
+
   useEffect(() => {
     if (!ride) return;
     setRoadConditionSegments(buildSegmentsFromStreets(ride));
@@ -139,9 +135,6 @@ export default function RideRecordConfirm() {
       </div>
     );
   }
-  // Current step in the workflow
-  const [currentStep, setCurrentStep] = useState<'stats' | 'report' | 'review'>('stats');
-  
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -189,104 +182,46 @@ export default function RideRecordConfirm() {
   };
 
   const handleMapClick = (latLng: [number, number]) => {
-  if (!ride?.path?.length) return;
+    if (!ride?.path?.length) return;
 
-  const nearest = findNearestPathIndex(ride.path, latLng);
-  const snapped = ride.path[nearest.index];
+    const nearest = findNearestPathIndex(ride.path, latLng);
+    const snapped = ride.path[nearest.index];
 
-  if (mapMode === "issue") {
-    setSelectedIssueLocation(snapped);
-    toast.success(`Issue location selected (point ${nearest.index})`);
-    return;
-  }
-
-  if (mapMode === "segment") {
-    // 第一次点：Start
-    if (segmentStartPoint === null) {
-      setSegmentStartPoint(nearest.index);
-      setSegmentEndPoint(null);
-      toast.success(`Segment start selected (point ${nearest.index})`);
+    if (mapMode === 'issue') {
+      setSelectedIssueLocation(snapped);
+      toast.success(`Issue location selected (point ${nearest.index})`);
       return;
     }
 
-    // 第二次点：End
-    if (nearest.index === segmentStartPoint) {
-      toast.error("End point must be different from start point");
-      return;
-    }
+    if (mapMode === 'segment') {
+      if (segmentStartPoint === null) {
+        setSegmentStartPoint(nearest.index);
+        setSegmentEndPoint(null);
+        toast.success(`Segment start selected (point ${nearest.index})`);
+        return;
+      }
 
-    setSegmentEndPoint(nearest.index);
-    toast.success(`Segment end selected (point ${nearest.index})`);
-  }
-};
+      if (nearest.index === segmentStartPoint) {
+        toast.error('End point must be different from start point');
+        return;
+      }
+
+      setSegmentEndPoint(nearest.index);
+      toast.success(`Segment end selected (point ${nearest.index})`);
+    }
+  };
 
   const handleConfirmIssue = (issueId: string) => {
-
-    setIssues((prev) =>
-      prev.map((issue) =>
-        issue.id === issueId ? { ...issue, status: 'confirmed' as const } : issue
-      )
-    );
+    setIssues((prev) => prev.map((issue) => (issue.id === issueId ? { ...issue, status: 'confirmed' as const } : issue)));
   };
 
   const handleIgnoreIssue = (issueId: string) => {
     setIssues((prev) => prev.filter((issue) => issue.id !== issueId));
   };
-  const storedRide = getCurrentRide();
-  type RideStatus = 'DRAFT' | 'CONFIRMED';
-
-  const saveRide = (status: RideStatus) => {
-    if (issues.some(issue => issue.status === 'pending')) {
-      toast.error('Please confirm or ignore all pending issues');
-      return;
-    }
-    if (roadConditionSegments.length === 0) {
-      toast.error('Please add at least one road condition segment');
-      setShowReportDialog(true);
-      setReportTab('conditions');
-      return;
-    }
-    
-    const finalRide = {
-      ...ride,
-      issues,
-      status,
-      roadConditionSegments,
-      uploadStatus: 'pending', // 👈 关键
-      confirmedAt: new Date().toISOString(),
-    };
-  
-    //console.log("SAVE CLICKED: passed validation");
-    //console.log("finalRide", finalRide);
-    saveRideLocal(finalRide);
-  
-    toast.success('Ride saved locally');
-    navigate('/map');
-  };
-  
-
-  const handleSaveAndPublish = () => {
-    //必须先save
-    if (!conditionsConfirmed) {
-      toast.error('Please save road condition reports first');
-      setShowReportDialog(true);
-      setReportTab('conditions');
-      return;
-    }
-    saveRide('CONFIRMED');
-
-  };
-  
-  const handleSaveOnly = () => {
-    saveRide('DRAFT');
-  };
-
-
 
   const pendingIssues = issues.filter((issue) => issue.status === 'pending');
   const confirmedIssues = issues.filter((issue) => issue.status === 'confirmed');
 
-  // Add new manual issue
   const handleAddManualIssue = () => {
     if (!selectedIssueLocation) {
       toast.error('Please select a location on the map');
@@ -309,23 +244,20 @@ export default function RideRecordConfirm() {
     setNewIssueDescription('');
     setIsAddingIssue(false);
     toast.success('Issue added successfully');
-    //console.log("RideRecordingConfirm>> issue: ", issues);
-    
   };
 
-  // Edit existing issue
   const handleEditIssue = (issueId: string) => {
     const issue = issues.find((i) => i.id === issueId);
-    if (issue) {
-      setEditingIssueId(issueId);
-      setSelectedIssueLocation(issue.location);
-      setNewIssueType(issue.type);
-      setNewIssueSeverity(issue.severity);
-      setNewIssueDescription(issue.description || '');
-      setIsAddingIssue(true);
-      setReportTab('issues');
-      setShowReportDialog(true);
-    }
+    if (!issue) return;
+
+    setEditingIssueId(issueId);
+    setSelectedIssueLocation(issue.location);
+    setNewIssueType(issue.type);
+    setNewIssueSeverity(issue.severity);
+    setNewIssueDescription(issue.description || '');
+    setIsAddingIssue(true);
+    setReportTab('issues');
+    setShowReportDialog(true);
   };
 
   const handleUpdateIssue = () => {
@@ -334,15 +266,9 @@ export default function RideRecordConfirm() {
     setIssues((prev) =>
       prev.map((issue) =>
         issue.id === editingIssueId
-          ? {
-              ...issue,
-              type: newIssueType,
-              location: selectedIssueLocation,
-              severity: newIssueSeverity,
-              description: newIssueDescription,
-            }
-          : issue
-      )
+          ? { ...issue, type: newIssueType, location: selectedIssueLocation, severity: newIssueSeverity, description: newIssueDescription }
+          : issue,
+      ),
     );
 
     setEditingIssueId(null);
@@ -357,135 +283,131 @@ export default function RideRecordConfirm() {
     toast.success('Issue deleted');
   };
 
-  // Add road condition segment
-  const handleAddSegment = () => {
-    if (segmentStartPoint === null || segmentEndPoint === null) {
-      toast.error('Please select start and end points on the route');
+  type RideStatus = 'DRAFT' | 'CONFIRMED';
+
+  const saveRideLocalOnly = (status: RideStatus) => {
+    if (issues.some((issue) => issue.status === 'pending')) {
+      toast.error('Please confirm or ignore all pending issues');
+      return;
+    }
+    if (roadConditionSegments.length === 0) {
+      toast.error('Please add at least one road condition segment');
+      setShowReportDialog(true);
+      setReportTab('conditions');
       return;
     }
 
-    if (segmentStartPoint >= segmentEndPoint) {
-      toast.error('End point must be after start point');
-      return;
-    }
-
-    const segmentPath = ride.path.slice(segmentStartPoint, segmentEndPoint + 1);
-
-    const newSegment: RoadConditionSegment = {
-      id: `segment-${Date.now()}`,
-      startPoint: segmentStartPoint,
-      endPoint: segmentEndPoint,
-      condition: segmentCondition,
-      pathCoordinates: segmentPath,
+    const finalRide = {
+      ...ride,
+      issues,
+      status,
+      roadConditionSegments,
+      uploadStatus: 'pending',
+      confirmedAt: new Date().toISOString(),
     };
 
-    setRoadConditionSegments((prev) => [...prev, newSegment]);
-    setSegmentStartPoint(null);
-    setSegmentEndPoint(null);
-    setIsSelectingSegment(false);
-    toast.success('Road condition segment added');
+    saveRideLocal(finalRide);
+    toast.success('Ride saved locally');
+    navigate('/map');
   };
 
-  const handleEditSegment = (segmentId: string) => {
-    const segment = roadConditionSegments.find(s => s.id === segmentId);
-    if (!segment) return;
-  
-    setEditingSegmentId(segmentId);
-    setSegmentCondition(segment.condition);
-  
-    // ✅ 关键：告诉 map 要 highlight 哪一段
-    setHighlightSegment({
-      startIndex: segment.startPoint,
-      endIndex: segment.endPoint,
-    });
-  
-    setMapMode("segment");
-    setReportTab('conditions');
-    setShowReportDialog(true);
-  };
-  
+  // ✅ 重点：发布到后端（POST /rides/:rideId/confirm），body 必须 status=CONFIRMED
+  const publishRideRemote = async (finalRideBody: any) => {
+  // ✅ 从 supabase session 拿 token
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw new Error(error.message);
+  }
 
-  const handleUpdateSegment = () => {
-    if (!editingSegmentId) return;
-  
-    setRoadConditionSegments(prev =>
-      prev.map(segment =>
-        segment.id === editingSegmentId
-          ? { ...segment, condition: segmentCondition }
-          : segment
-      )
-    );
-  
-    setEditingSegmentId(null);
-    setHighlightSegment(null); // ✅
-    setMapMode("none");
-    toast.success('Segment updated successfully');
-  };
-  
+  const token = data.session?.access_token;
+  if (!token) {
+    throw new Error("No access token (please login again)");
+  }
 
-  const handleDeleteSegment = (segmentId: string) => {
-    setRoadConditionSegments((prev) => prev.filter((segment) => segment.id !== segmentId));
-    toast.success('Segment deleted');
-  };
+  const res = await fetch(`/rides/${finalRideBody.id}/confirm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`, // ✅ 关键
+    },
+    body: JSON.stringify(finalRideBody),
+  });
 
-  const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case 'excellent':
-        return 'bg-green-100 text-green-800';
-      case 'good':
-        return 'bg-blue-100 text-blue-800';
-      case 'fair':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'poor':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const text = await res.text();
+  if (!res.ok) {
+    // 你后端一般返回 JSON 字符串，这里直接抛出来方便你看
+    throw new Error(text || "Publish failed");
+  }
+
+  return text ? JSON.parse(text) : {};
+};
+
+
+  const handleSaveAndPublish = async () => {
+    if (!conditionsConfirmed) {
+      toast.error('Please save road condition reports first');
+      setShowReportDialog(true);
+      setReportTab('conditions');
+      return;
+    }
+
+    if (issues.some((issue) => issue.status === 'pending')) {
+      toast.error('Please confirm or ignore all pending issues');
+      return;
+    }
+
+    if (roadConditionSegments.length === 0) {
+      toast.error('Please add at least one road condition segment');
+      setShowReportDialog(true);
+      setReportTab('conditions');
+      return;
+    }
+
+    const finalRideBody = {
+      ...ride,
+      id: ride.id,                 // ✅ Controller 会检查 id mismatch（可选）
+      status: 'CONFIRMED',         // ✅ Controller 必须
+      issues,
+      roadConditionSegments,       // ✅ 后端用这个写 StreetReport
+      confirmedAt: new Date().toISOString(),
+    };
+
+    try {
+      await publishRideRemote(finalRideBody);
+
+      // 成功后本地也存一份（CONFIRMED）
+      saveRideLocal({
+        ...finalRideBody,
+        uploadStatus: 'pending',
+      });
+
+      toast.success('Ride published');
+      navigate('/map');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Publish failed: ${e?.message ?? 'unknown error'}`);
     }
   };
 
-  const getConditionText = (condition: string) => {
-    switch (condition) {
-      case 'excellent':
-        return 'Excellent';
-      case 'good':
-        return 'Good';
-      case 'fair':
-        return 'Fair';
-      case 'poor':
-        return 'Needs Repair';
-      default:
-        return 'Unknown';
-    }
-  };
+  const handleSaveOnly = () => saveRideLocalOnly('DRAFT');
 
   return (
-   
-
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b bg-white z-10">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/map')}
-          className="h-10 w-10"
-        >
+        <Button variant="ghost" size="icon" onClick={() => navigate('/map')} className="h-10 w-10">
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
         <h2 className="text-gray-900">Confirm Ride Data</h2>
       </div>
-       
 
       <div className="flex-1 overflow-y-auto">
         {/* Map */}
         <div className="h-64">
           <MapView
             userPath={ride.path}
-            issues={issues.map((issue) => ({
-              location: issue.location,
-              type: issue.type,
-            }))}
-            onMapClick={mapMode !== "none" ? handleMapClick : undefined}
+            issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
+            onMapClick={mapMode !== 'none' ? handleMapClick : undefined}
           />
         </div>
 
@@ -514,21 +436,17 @@ export default function RideRecordConfirm() {
               </div>
             </CardContent>
           </Card>
+
           <div className="mb-4">
-            <Weather/>
+            <Weather />
           </div>
+
           {/* Detected Issues */}
           {issues.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-900">
-                  Reported Issues ({issues.length})
-                </h3>
-                {pendingIssues.length > 0 && (
-                  <Badge className="bg-orange-100 text-orange-800">
-                    {pendingIssues.length} pending
-                  </Badge>
-                )}
+                <h3 className="text-gray-900">Reported Issues ({issues.length})</h3>
+                {pendingIssues.length > 0 && <Badge className="bg-orange-100 text-orange-800">{pendingIssues.length} pending</Badge>}
               </div>
 
               {showUnconfirmedWarning && pendingIssues.length > 0 && (
@@ -536,9 +454,7 @@ export default function RideRecordConfirm() {
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <AlertCircleIcon className="w-5 h-5 text-orange-600 mt-0.5" />
-                      <p className="text-orange-900">
-                        {pendingIssues.length} issues pending confirmation, please review before saving.
-                      </p>
+                      <p className="text-orange-900">{pendingIssues.length} issues pending confirmation, please review before saving.</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -551,39 +467,26 @@ export default function RideRecordConfirm() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-gray-900">
-                              {getIssueTypeText(issue.type)}
-                            </span>
+                            <span className="text-gray-900">{getIssueTypeText(issue.type)}</span>
                             <Badge className={getSeverityColor(issue.severity)} variant="secondary">
                               {getSeverityText(issue.severity)}
                             </Badge>
-                            {issue.autoDetected && (
-                              <Badge variant="outline">Auto-detected</Badge>
-                            )}
+                            {issue.autoDetected && <Badge variant="outline">Auto-detected</Badge>}
                           </div>
                           <p className="text-gray-600">
                             Location: {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
                           </p>
                         </div>
-                        {issue.status === 'confirmed' && (
-                          <CheckCircleIcon className="w-6 h-6 text-green-600" />
-                        )}
+                        {issue.status === 'confirmed' && <CheckCircleIcon className="w-6 h-6 text-green-600" />}
                       </div>
 
                       {issue.status === 'pending' && (
                         <div className="flex gap-2 mt-3">
-                          <Button
-                            variant="outline"
-                            className="flex-1 h-10"
-                            onClick={() => handleIgnoreIssue(issue.id)}
-                          >
+                          <Button variant="outline" className="flex-1 h-10" onClick={() => handleIgnoreIssue(issue.id)}>
                             <XIcon className="w-4 h-4 mr-2" />
                             Ignore
                           </Button>
-                          <Button
-                            className="flex-1 h-10 bg-orange-600 hover:bg-orange-700"
-                            onClick={() => handleConfirmIssue(issue.id)}
-                          >
+                          <Button className="flex-1 h-10 bg-orange-600 hover:bg-orange-700" onClick={() => handleConfirmIssue(issue.id)}>
                             <CheckCircleIcon className="w-4 h-4 mr-2" />
                             Confirm Report
                           </Button>
@@ -595,7 +498,6 @@ export default function RideRecordConfirm() {
               </div>
             </div>
           )}
-          
 
           {issues.length === 0 && (
             <Card>
@@ -605,7 +507,6 @@ export default function RideRecordConfirm() {
               </CardContent>
             </Card>
           )}
-          
 
           {/* Report Road Conditions Button */}
           <Card className="bg-orange-50 border-2 border-orange-300">
@@ -614,9 +515,7 @@ export default function RideRecordConfirm() {
                 <AlertCircleIcon className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-orange-900 font-medium mb-1">Required: Report Road Conditions</p>
-                  <p className="text-orange-800 text-sm">
-                    You must add at least one road condition segment before saving your ride data.
-                  </p>
+                  <p className="text-orange-800 text-sm">You must add at least one road condition segment before saving your ride data.</p>
                 </div>
               </div>
               <Button
@@ -634,54 +533,38 @@ export default function RideRecordConfirm() {
 
           {/* Road Condition Segments Preview */}
           {conditionsConfirmed && roadConditionSegments.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-gray-900">
-                    Road Condition Segments ({roadConditionSegments.length})
-                  </h3>
-                </div>
-
-                <div className="space-y-3">
-                  {roadConditionSegments.map((segment) => (
-                    <Card key={segment.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{segment.name}</p>
-                            <p className="text-xs text-gray-600">
-                              {segment.pathCoordinates.length} points
-                            </p>
-                          </div>
-
-                          <Badge variant="secondary">
-                            {segment.condition}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-gray-900">Road Condition Segments ({roadConditionSegments.length})</h3>
               </div>
-            )}
 
-
+              <div className="space-y-3">
+                {roadConditionSegments.map((segment) => (
+                  <Card key={segment.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{segment.name}</p>
+                          <p className="text-xs text-gray-600">streetExternalId: {segment.streetExternalId}</p>
+                        </div>
+                        <Badge variant="secondary">{segment.condition}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Action Buttons */}
       <div className="p-4 border-t bg-white space-y-3">
-        <Button
-          variant="outline"
-          className="w-full h-12"
-          onClick={handleSaveOnly}
-        >
+        <Button variant="outline" className="w-full h-12" onClick={handleSaveOnly}>
           <SaveIcon className="w-5 h-5 mr-2" />
           Save only
         </Button>
-        <Button
-          className="w-full h-12 bg-green-600 hover:bg-green-700"
-          onClick={handleSaveAndPublish}
-        >
+        <Button className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={handleSaveAndPublish}>
           <ShareIcon className="w-5 h-5 mr-2" />
           Save and Publish
           {confirmedIssues.length > 0 && ` (${confirmedIssues.length} reports)`}
@@ -695,10 +578,9 @@ export default function RideRecordConfirm() {
           setShowReportDialog(open);
           if (!open) {
             setHighlightSegment(null);
-            setMapMode("none");
+            setMapMode('none');
           }
         }}
-        
       >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -707,14 +589,7 @@ export default function RideRecordConfirm() {
 
           <Tabs value={reportTab} onValueChange={(v) => setReportTab(v as any)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="issues">
-                Issue Points
-                {issues.filter(i => !i.autoDetected).length > 0 && (
-                  <span className="ml-2 bg-orange-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                    {issues.filter(i => !i.autoDetected).length}
-                  </span>
-                )}
-              </TabsTrigger>
+              <TabsTrigger value="issues">Issue Points</TabsTrigger>
               <TabsTrigger value="conditions">
                 Road Segments
                 {roadConditionSegments.length > 0 && (
@@ -725,24 +600,23 @@ export default function RideRecordConfirm() {
               </TabsTrigger>
             </TabsList>
 
+            {/* issues tab（你原来的完整 UI 直接放回这里也行） */}
             <TabsContent value="issues" className="space-y-4 mt-4">
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-4">
                   <p className="text-blue-900 text-sm">
-                    <strong>Tip:</strong> Tap on the map below to place a marker where you encountered an issue. You can add multiple issues along your route.
+                    <strong>Tip:</strong> Tap on the map below to place a marker where you encountered an issue.
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Simplified Map for Issue Selection */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
                   <MapView
                     userPath={ride.path}
                     issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
-                    onMapClick={mapMode === "issue" ? handleMapClick : undefined}
+                    onMapClick={mapMode === 'issue' ? handleMapClick : undefined}
                   />
-                  
                 </div>
               </div>
 
@@ -751,7 +625,7 @@ export default function RideRecordConfirm() {
                   className="w-full h-12 bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     setIsAddingIssue(true);
-                    setMapMode("issue");
+                    setMapMode('issue');
                     setEditingIssueId(null);
                     setSelectedIssueLocation(null);
                     setNewIssueDescription('');
@@ -763,14 +637,8 @@ export default function RideRecordConfirm() {
               )}
 
               {isAddingIssue && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4 p-4 border-2 border-green-600 rounded-lg bg-green-50"
-                >
-                  <h4 className="text-gray-900 font-medium">
-                    {editingIssueId ? 'Edit Issue' : 'New Issue'}
-                  </h4>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 p-4 border-2 border-green-600 rounded-lg bg-green-50">
+                  <h4 className="text-gray-900 font-medium">{editingIssueId ? 'Edit Issue' : 'New Issue'}</h4>
 
                   <div className="space-y-3">
                     <div>
@@ -804,24 +672,8 @@ export default function RideRecordConfirm() {
                     <div>
                       <Label>Location (Tap map to select)</Label>
                       <div className="text-sm text-gray-600 bg-white p-3 rounded border">
-                        {selectedIssueLocation
-                          ? `${selectedIssueLocation[0].toFixed(4)}, ${selectedIssueLocation[1].toFixed(4)}`
-                          : 'Click on the map above to set location'}
+                        {selectedIssueLocation ? `${selectedIssueLocation[0].toFixed(4)}, ${selectedIssueLocation[1].toFixed(4)}` : 'Click on the map above to set location'}
                       </div>
-                      {!selectedIssueLocation && (
-                        <Button
-                          variant="outline"
-                          className="w-full mt-2 h-10"
-                          onClick={() => {
-                            // Simulate selecting a random point on the path
-                            const randomIndex = Math.floor(Math.random() * ride.path.length);
-                            setSelectedIssueLocation(ride.path[randomIndex]);
-                          }}
-                        >
-                          <MapPinIcon className="w-4 h-4 mr-2" />
-                          Pick Random Point (Demo)
-                        </Button>
-                      )}
                     </div>
 
                     <div>
@@ -840,7 +692,7 @@ export default function RideRecordConfirm() {
                         className="flex-1 h-12"
                         onClick={() => {
                           setIsAddingIssue(false);
-                          setMapMode("none");
+                          setMapMode('none');
                           setEditingIssueId(null);
                           setSelectedIssueLocation(null);
                           setNewIssueDescription('');
@@ -848,10 +700,7 @@ export default function RideRecordConfirm() {
                       >
                         Cancel
                       </Button>
-                      <Button
-                        className="flex-1 h-12 bg-orange-600 hover:bg-orange-700"
-                        onClick={editingIssueId ? handleUpdateIssue : handleAddManualIssue}
-                      >
+                      <Button className="flex-1 h-12 bg-orange-600 hover:bg-orange-700" onClick={editingIssueId ? handleUpdateIssue : handleAddManualIssue}>
                         {editingIssueId ? 'Update' : 'Add'} Issue
                       </Button>
                     </div>
@@ -859,169 +708,130 @@ export default function RideRecordConfirm() {
                 </motion.div>
               )}
 
-              {/* List of Manual Issues */}
-              {issues.filter(i => !i.autoDetected).length > 0 && (
+              {issues.filter((i) => !i.autoDetected).length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-gray-900 font-medium">Manual Issues ({issues.filter(i => !i.autoDetected).length})</h4>
-                  {issues.filter(i => !i.autoDetected).map((issue) => (
-                    <Card key={issue.id}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium">{getIssueTypeText(issue.type)}</span>
-                              <Badge className={getSeverityColor(issue.severity)} variant="secondary">
-                                {getSeverityText(issue.severity)}
-                              </Badge>
+                  <h4 className="text-gray-900 font-medium">Manual Issues ({issues.filter((i) => !i.autoDetected).length})</h4>
+                  {issues
+                    .filter((i) => !i.autoDetected)
+                    .map((issue) => (
+                      <Card key={issue.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium">{getIssueTypeText(issue.type)}</span>
+                                <Badge className={getSeverityColor(issue.severity)} variant="secondary">
+                                  {getSeverityText(issue.severity)}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-600">
+                                {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
+                              </p>
+                              {issue.description && <p className="text-sm text-gray-600 mt-1">{issue.description}</p>}
                             </div>
-                            <p className="text-xs text-gray-600">
-                              {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
-                            </p>
-                            {issue.description && (
-                              <p className="text-sm text-gray-600 mt-1">{issue.description}</p>
-                            )}
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditIssue(issue.id)}>
+                                <EditIcon className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteIssue(issue.id)}>
+                                <TrashIcon className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditIssue(issue.id)}
-                            >
-                              <EditIcon className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600"
-                              onClick={() => handleDeleteIssue(issue.id)}
-                            >
-                              <TrashIcon className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </div>
               )}
             </TabsContent>
 
+            {/* conditions tab：核心就是 Select 改 condition + notes */}
             <TabsContent value="conditions" className="space-y-4 mt-4">
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-4">
                   <p className="text-blue-900 text-sm">
-                    <strong>Tip:</strong> Select a segment of your route to rate its road condition. You can add multiple segments with different ratings.
+                    <strong>Tip:</strong> Rate each street segment.
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Simplified Map for Segment Selection */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="h-48 bg-gray-100 relative">
-                <MapView
-                  userPath={ride.path}
-                  issues={issues.map((issue) => ({
-                    location: issue.location,
-                    type: issue.type,
-                  }))}
-                  selectedSegment={highlightSegment ?? undefined}
-                />
-
+                  <MapView userPath={ride.path} issues={[]} selectedSegment={highlightSegment ?? undefined} />
                 </div>
               </div>
 
-              
-
-        
-
-              {/* List of Segments */}
               {roadConditionSegments.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-gray-900 font-medium">Road Segments ({roadConditionSegments.length})</h4>
+
                   {roadConditionSegments.map((segment) => (
                     <Card
-                    key={segment.id}
-                    className="cursor-pointer hover:border-blue-500 transition"
-                    onClick={() => {
-                      setHighlightSegment({
-                        startIndex: segment.startPoint,
-                        endIndex: segment.endPoint,
-                      });
-                    }}
-                  >
-                  
+                      key={segment.id}
+                      className="cursor-pointer hover:border-blue-500 transition"
+                      onClick={() => setHighlightSegment({ startIndex: segment.startPoint, endIndex: segment.endPoint })}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-3">
-                          {/* 左：Segment 名字 */}
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">
-                              {segment.name}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              {segment.pathCoordinates.length} points · approx{' '}
-                              {(segment.pathCoordinates.length * 0.05).toFixed(2)} km
-                            </p>
+                            <p className="text-sm font-medium text-gray-900">{segment.name}</p>
+                            <p className="text-xs text-gray-600">streetExternalId: {segment.streetExternalId}</p>
                           </div>
 
-                          {/* 右：Condition dropdown */}
                           <Select
                             value={segment.condition}
                             onValueChange={(v) => {
-                              setRoadConditionSegments(prev =>
-                                prev.map(s =>
-                                  s.id === segment.id
-                                    ? { ...s, condition: v as RoadCondition }
-                                    : s
-                                )
+                              setRoadConditionSegments((prev) =>
+                                prev.map((s) => (s.id === segment.id ? { ...s, condition: v as RoadCondition } : s)),
                               );
                             }}
                           >
-                            <SelectTrigger className="w-[160px] h-9">
+                            <SelectTrigger className="w-[180px] h-9">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value={RoadCondition.EXCELLENT}>
-                                Excellent
-                              </SelectItem>
-                              <SelectItem value={RoadCondition.GOOD}>
-                                Good
-                              </SelectItem>
-                              <SelectItem value={RoadCondition.FAIR}>
-                                Fair
-                              </SelectItem>
-                              <SelectItem value={RoadCondition.NEED_REPAIR}>
-                                Needs Repair
-                              </SelectItem>
+                              <SelectItem value={RoadCondition.EXCELLENT}>Excellent</SelectItem>
+                              <SelectItem value={RoadCondition.GOOD}>Good</SelectItem>
+                              <SelectItem value={RoadCondition.FAIR}>Fair</SelectItem>
+                              <SelectItem value={RoadCondition.NEED_REPAIR}>Needs Repair</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        <div className="mt-3">
+                          <Label className="text-xs">Notes (optional)</Label>
+                          <Textarea
+                            className="min-h-16 mt-1"
+                            placeholder="Write notes..."
+                            value={segment.notes ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setRoadConditionSegments((prev) =>
+                                prev.map((s) => (s.id === segment.id ? { ...s, notes: val } : s)),
+                              );
+                            }}
+                          />
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-
                 </div>
               )}
             </TabsContent>
           </Tabs>
 
           <div className="flex gap-3 pt-4 border-t">
-            <Button
-              variant="outline"
-              className="flex-1 h-12"
-              onClick={() => setShowReportDialog(false)}
-            >
+            <Button variant="outline" className="flex-1 h-12" onClick={() => setShowReportDialog(false)}>
               Close
             </Button>
             <Button
               className="flex-1 h-12 bg-green-600 hover:bg-green-700"
               onClick={() => {
-                setConditionsConfirmed(true);   // ✅ 关键
+                setConditionsConfirmed(true);
                 setShowReportDialog(false);
                 toast.success('Road conditions saved');
               }}
             >
-
               <CheckCircleIcon className="w-5 h-5 mr-2" />
               Save Reports
             </Button>
