@@ -71,19 +71,21 @@ export default function IssueList({
   );
 }
 
-/* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
 
-function getIssueTypeText(type: string) {
-  switch (type) {
-    case "pothole":
-      return "Pothole";
-    case "crack":
-      return "Crack";
-    case "obstacle":
-      return "Obstacle";
-    default:
-      return "Other";
-  }
+/* ---------------- helpers（与 Dialog 保持一致） ---------------- */
+
+import { IssueType } from "../types/issue";
+
+const ISSUE_TYPE_LABEL: Record<IssueType, string> = {
+  [IssueType.POTHOLE]: "Pothole",
+  [IssueType.BUMP]: "Bump",
+  [IssueType.GRAVEL]: "Gravel",
+  [IssueType.CONSTRUCTION]: "Construction",
+  [IssueType.OTHER]: "Other",
+};
+
+function getIssueTypeText(type: IssueType | string) {
+  return ISSUE_TYPE_LABEL[type as IssueType] ?? "Other";
 }
 
 function getSeverityColor(severity: string) {
