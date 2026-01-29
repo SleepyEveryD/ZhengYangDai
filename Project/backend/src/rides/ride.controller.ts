@@ -72,9 +72,7 @@ export class RideController {
 
     // ✅ 必须是 CONFIRMED
     if (body.status !== 'CONFIRMED') {
-      throw new BadRequestException(
-        'Ride must be in CONFIRMED status to confirm',
-      );
+      throw new BadRequestException('Ride must be in CONFIRMED status to confirm');
     }
 
     // ✅ 防止前端传错 rideId

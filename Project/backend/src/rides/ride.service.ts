@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { toGeoJSONPointFromFrontend } from '../util/geojson.util';
 
+import { RoadCondition } from '@prisma/client';
 
 interface ConfirmRideInput {
   rideId: string;
@@ -90,7 +91,7 @@ export class RideService {
 
   /**
    * Confirm Ride（DRAFT → CONFIRMED）
-   * 使用 mock street（不调用外部 API）
+   * payload 来自前端 body（Controller 已校验 status=CONFIRMED）
    */
    async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     const {
@@ -124,8 +125,8 @@ export class RideService {
             4326
           )::geography,
           'CONFIRMED'::"RideStatus",
-          ${new Date(startedAt)},
-          ${new Date(endedAt)}
+          ${startedAt ? new Date(startedAt) : new Date()},
+          ${endedAt ? new Date(endedAt) : new Date()}
         )
         ON CONFLICT (id) DO UPDATE
         SET
@@ -142,9 +143,11 @@ export class RideService {
        * 2. Streets & StreetReports
        * -------------------------------- */
       for (const street of streets) {
+        if (!street?.externalId) continue;
+
         const geometry = {
           type: 'LineString',
-          coordinates: street.positions.map((p: any) => p.coord),
+          coordinates: (street.positions ?? []).map((p: any) => p.coord),
         };
   
         // 2.1 查是否存在同名 + 1km 内的 Street
@@ -203,6 +206,13 @@ export class RideService {
         // 2.3 创建 StreetReport（幂等）
         const existingReport = await tx.streetReport.findFirst({
           where: {
+            user_ride_street_unique: {
+              userId,
+              rideId,
+              streetId: streetRecord.id,
+            },
+          },
+          create: {
             userId,
             rideId,
             streetId,
@@ -273,6 +283,7 @@ export class RideService {
       where: { id: rideId },
       include: {
         reports: true,
+        issues: true,
       },
     });
 
