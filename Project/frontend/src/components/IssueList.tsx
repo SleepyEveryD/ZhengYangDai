@@ -5,7 +5,6 @@ import { AlertCircleIcon } from "lucide-react";
 type Issue = {
   id: string;
   type: string;
-  severity?: string;
   location: [number, number];
   notes?: string;
 };
@@ -36,17 +35,13 @@ export default function IssueList({
         {issues.map((issue) => (
           <Card key={issue.id}>
             <CardContent className="p-4 space-y-2">
-              {/* type + severity */}
+              {/* type */}
               <div className="flex justify-between items-center">
                 <span className="text-gray-900 font-medium">
                   {getIssueTypeText(issue.type)}
                 </span>
 
-                {issue.severity && (
-                  <Badge className={getSeverityColor(issue.severity)}>
-                    {getSeverityText(issue.severity)}
-                  </Badge>
-                )}
+            
               </div>
 
               {/* location */}
@@ -93,28 +88,5 @@ function getIssueTypeText(type: unknown) {
 }
 
 
-function getSeverityColor(severity: string) {
-  switch (severity) {
-    case "high":
-      return "bg-red-100 text-red-800";
-    case "medium":
-      return "bg-orange-100 text-orange-800";
-    case "low":
-      return "bg-yellow-100 text-yellow-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-}
 
-function getSeverityText(severity: string) {
-  switch (severity) {
-    case "high":
-      return "Severe";
-    case "medium":
-      return "Moderate";
-    case "low":
-      return "Minor";
-    default:
-      return "Unknown";
-  }
-}
+
