@@ -31,7 +31,7 @@ import type {
 function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
   if (!ride.streets?.length || !ride.path?.length) return [];
 
-  return ride.streets.map((street: any, i: number) => {
+  return ride.streets.map((street, i) => {
     const idx = street.positions[0].index;
     let start = idx;
     let end = idx;

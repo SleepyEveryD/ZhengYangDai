@@ -90,6 +90,7 @@ export class RideService {
   /**
    * Confirm Ride（DRAFT → CONFIRMED）
    * 使用 mock street（不调用外部 API）
+   * 使用 mock street（不调用外部 API）
    */
    async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     const {
@@ -135,6 +136,8 @@ export class RideService {
           'CONFIRMED'::"RideStatus",
           ${new Date(startedAt)},
           ${new Date(endedAt)}
+          ${new Date(startedAt)},
+          ${new Date(endedAt)}
         )
         ON CONFLICT (id) DO UPDATE
         SET
@@ -153,6 +156,7 @@ export class RideService {
       for (const street of streets) {
         const geometry = {
           type: 'LineString',
+          coordinates: street.positions.map((p: any) => p.coord),
           coordinates: street.positions.map((p: any) => p.coord),
         };
   

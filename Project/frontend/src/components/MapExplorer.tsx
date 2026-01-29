@@ -19,7 +19,7 @@ type MapExplorerProps = {
 type PathItem = {
   id: string;
   coordinates: [number, number][];
-  condition: "excellent" | "good" | "fair" | "needRepair";
+  condition: "excellent" | "good" | "fair" | "poor";
 };
 
 export default function MapExplorer({ user }: MapExplorerProps) {
