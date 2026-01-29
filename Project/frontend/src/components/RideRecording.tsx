@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   StopCircleIcon,
@@ -16,40 +16,28 @@ import { rideRouteService } from "../services/reportService";
 import type { Ride } from "../types/ride";
 import type { RideStreet } from "../types/rideStreet";
 import type { GeoJSON } from "geojson";
-import type { Route } from "../types/route";
 
 /**
  * TRACK_MODE:
  * - "real": 用真实 GPS 轨迹（watchPosition）
- * - "demo": 用预设路线 + 速度推进 + 少量 GPS 抖动（更像真实骑行）
+ * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
  */
 const TRACK_MODE: "real" | "demo" = "demo";
-/**S
- * Demo 路线（[lat, lng]）
- * 这里是一条带转弯的小路线（点与点别太远，demo 更自然）
- */
-const DEMO_ROUTE_TEMPLATE: [number, number][] = [
-  [45.46350, 9.18760],
-  [45.46355, 9.18820],
-  [45.46360, 9.18890],
-  [45.46362, 9.18940],
-  [45.46390, 9.18980],
-  [45.46440, 9.18985],
-  [45.46495, 9.18988],
-  [45.46530, 9.19020],
-  [45.46560, 9.19060],
-];
 
 /** Demo 速度（m/s）：4~7 比较像骑行 */
 const DEMO_SPEED_MPS = 5.5;
-/** GPS 抖动（米）：2~6 比较真实 */
-const DEMO_NOISE_M = 3;
 
+/**
+ * GPS 噪声（米）
+ * ✅ 为了“不穿墙”，建议 0~1m
+ * 如果你加大噪声，点会偏离道路（又会穿进建筑）
+ */
+const DEMO_NOISE_M = 0.5;
 
 // 录制过滤参数（骑行友好）
-const MIN_DIST_M = 50; // demo/真实都更自然一点
-const MIN_TIME_MS = 4000;
-const MIN_TURN_DEG = 30;
+const MIN_DIST_M = 8; // ✅ 50 太大，会跳点；8~12 更像骑行
+const MIN_TIME_MS = 2500;
+const MIN_TURN_DEG = 25;
 
 // ---------- helpers ----------
 const toRad = (d: number) => (d * Math.PI) / 180;
@@ -67,62 +55,6 @@ const haversineMeters = (a: [number, number], b: [number, number]) => {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(q));
 };
-const isOffRoute = (
-  current: [number, number],
-  route: [number, number][]
-) => {
-  if (!window.google?.maps || route.length < 2) return false;
-
-  const google = window.google;
-
-  const point = new google.maps.LatLng(current[0], current[1]);
-  const polyline = new google.maps.Polyline({
-    path: route.map(([lat, lng]) => ({ lat, lng })),
-  });
-
-  // tolerance：单位是「度」，约 30 米
-  return !google.maps.geometry.poly.isLocationOnEdge(
-    point,
-    polyline,
-    0.0005
-  );
-};
-
-const findClosestRouteIndex = (
-  route: [number, number][],
-  current: [number, number]
-) => {
-  let minDist = Infinity;
-  let closestIndex = 0;
-
-  for (let i = 0; i < route.length; i++) {
-    const d = haversineMeters(route[i], current);
-    if (d < minDist) {
-      minDist = d;
-      closestIndex = i;
-    }
-  }
-
-  return closestIndex;
-};
-
-const splitRouteByProgress = (
-  route: [number, number][],
-  current: [number, number] | undefined
-) => {
-  if (!current || route.length < 2) {
-    return { passed: [], remaining: route };
-  }
-
-  const idx = findClosestRouteIndex(route, current);
-
-  return {
-    passed: route.slice(0, idx + 1),
-    remaining: route.slice(idx),
-  };
-};
-
-
 
 const bearingDeg = (a: [number, number], b: [number, number]) => {
   const [lat1, lng1] = a.map(toRad) as [number, number];
@@ -178,22 +110,18 @@ const computeStatsFromTrack = (track: TrackPoint[]) => {
 
   const distKm = distM / 1000;
   const durationSec =
-    track.length >= 2 ? Math.max((track[track.length - 1].t - track[0].t) / 1000, 1) : 1;
+    track.length >= 2
+      ? Math.max((track[track.length - 1].t - track[0].t) / 1000, 1)
+      : 1;
 
-  const avgKmh = (distKm / (durationSec / 3600)) || 0;
+  const avgKmh = distKm / (durationSec / 3600) || 0;
   const maxKmh = maxMps * 3.6;
 
   return { distKm, durationSec, avgKmh, maxKmh };
-  
 };
-
 
 export default function RideRecording() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const selectedRoute = location.state?.route as Route | undefined;
-  const isReRoutingRef = useRef(false);
-
 
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -202,40 +130,23 @@ export default function RideRecording() {
   const [path, setPath] = useState<[number, number][]>([]);
   const [detectedIssues, setDetectedIssues] = useState<Issue[]>([]);
 
+  // 基准位置（用于 demo 起点）
   const baseRef = useRef<[number, number] | null>(null);
 
   // 真正录制：带 timestamp
   const trackRef = useRef<TrackPoint[]>([]);
   const lastKeptAtRef = useRef<number>(0);
 
-  // demo：沿 route 前进
-  const demoSegRef = useRef(0);
-  const demoTRef = useRef(0);
-  const demoRouteRef = useRef<[number, number][]>(DEMO_ROUTE_TEMPLATE);
+  // demo：沿路线路径推进
+  const demoRouteRef = useRef<[number, number][]>([]);
   const demoRouteReadyRef = useRef(false);
-  const demoPosRef = useRef<[number, number] | null>(null);
-  const demoHeadingRef = useRef<number>(0); // 0~360
+  const demoSegRef = useRef(0); // 当前 segment index
+  const demoTRef = useRef(0); // 当前 segment 内插值 0~1
+  const preparingDemoRouteRef = useRef(false);
 
   const getBase = useMemo(() => {
     return () => baseRef.current ?? [45.4642, 9.19];
   }, []);
-
-  // demo 路线平移到用户当前位置（关键：防止跨城直线）
-  const alignDemoRouteToBase = (base: [number, number]) => {
-    const [baseLat, baseLng] = base;
-    const [tplLat, tplLng] = DEMO_ROUTE_TEMPLATE[0];
-    const dLat = baseLat - tplLat;
-    const dLng = baseLng - tplLng;
-
-    demoRouteRef.current = DEMO_ROUTE_TEMPLATE.map(([lat, lng]) => [
-      lat + dLat,
-      lng + dLng,
-    ]);
-
-    demoRouteReadyRef.current = true;
-    demoSegRef.current = 0;
-    demoTRef.current = 0;
-  };
 
   // 统一入点：距离阈值 + 转弯阈值 + 时间兜底
   const pushPoint = (p: [number, number], t: number) => {
@@ -269,83 +180,82 @@ export default function RideRecording() {
       setPath(trackRef.current.map((x) => [x.lat, x.lng]));
     }
   };
-  const currentLocation: [number, number] | undefined =
-  path.length > 0 ? path[path.length - 1] : undefined;
- const rerouteFromCurrentLocation = () => {
-  if (!window.google?.maps) {
-    isReRoutingRef.current = false; // ✅ 解锁
-    return;
-  }
 
-  if (!selectedRoute?.path || !currentLocation) {
-    isReRoutingRef.current = false; // ✅ 解锁
-    return;
-  }
+  /**
+   * ✅ 关键：准备 demo 路线（沿道路）
+   * 用你后端 /map/analyze 返回的 routes[0].path（[lat,lng][]) 作为 demo 轨迹模板
+   */
+  const prepareDemoRoute = async (base: [number, number]) => {
+    if (preparingDemoRouteRef.current) return;
+    preparingDemoRouteRef.current = true;
 
-  const google = window.google;
+    const origin = { lat: base[0], lng: base[1] };
 
-  const destination =
-    selectedRoute.path[selectedRoute.path.length - 1];
+    // demo 用一个附近目的地（约 1~2km 外）
+    const destination = {
+      lat: origin.lat + 0.01,
+      lng: origin.lng + 0.01,
+    };
 
-  const directionsService = new google.maps.DirectionsService();
+    try {
+      const res = await fetch("http://localhost:3000/map/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origin,
+          destination,
+          travelMode: "BICYCLING",
+        }),
+      });
 
-  directionsService.route(
-    {
-      origin: {
-        lat: currentLocation[0],
-        lng: currentLocation[1],
-      },
-      destination: {
-        lat: destination[0],
-        lng: destination[1],
-      },
-      travelMode: google.maps.TravelMode.BICYCLING,
-    },
-    (result: any, status: any) => {
-      if (status === "OK" && result.routes?.length) {
-        const steps = result.routes[0].legs[0].steps;
+      const data = await res.json();
+      const demoPath = data?.routes?.[0]?.path as [number, number][] | undefined;
 
-const newPath: [number, number][] = steps.flatMap(
-  (step: any) =>
-    step.path.map(
-      (p: any) => [p.lat(), p.lng()] as [number, number]
-    )
-);
-
-        navigate(location.pathname, {
-          replace: true,
-          state: {
-            ...location.state,
-            route: {
-              ...selectedRoute,
-              path: newPath,
-            },
-          },
-        });
-
-        toast.success("Route updated");
-      } else {
-        toast.error("Failed to recalculate route");
+      if (!demoPath || demoPath.length < 2) {
+        toast.error("Demo route not available (backend returned empty path).");
+        demoRouteRef.current = [];
+        demoRouteReadyRef.current = false;
+        return;
       }
 
-      // ✅ 无论成功还是失败，都在这里解锁
-      isReRoutingRef.current = false;
-    }
-  );
-};
+      demoRouteRef.current = demoPath;
+      demoRouteReadyRef.current = true;
+      demoSegRef.current = 0;
+      demoTRef.current = 0;
 
-  // 初始化定位：第一帧正确 + demo 路线对齐
+      // 起点对齐到路线第一个点，避免第一帧跳动
+      baseRef.current = demoPath[0];
+      pushPoint(demoPath[0], Date.now());
+    } catch (e) {
+      console.error("prepareDemoRoute failed", e);
+      toast.error("Failed to prepare demo route.");
+      demoRouteRef.current = [];
+      demoRouteReadyRef.current = false;
+    } finally {
+      preparingDemoRouteRef.current = false;
+    }
+  };
+
+  // 初始化定位：第一帧正确 + demo 路线准备
   useEffect(() => {
     let cancelled = false;
     const fallback: [number, number] = [45.4642, 9.19];
 
-    if (!("geolocation" in navigator)) {
-      baseRef.current = fallback;
-      if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
+    const initWithBase = async (p: [number, number]) => {
+      baseRef.current = p;
 
+      // reset track
       trackRef.current = [];
       lastKeptAtRef.current = 0;
-      pushPoint(fallback, Date.now());
+      pushPoint(p, Date.now());
+
+      if (TRACK_MODE === "demo") {
+        await prepareDemoRoute(p);
+      }
+    };
+
+    if (!("geolocation" in navigator)) {
+      initWithBase(fallback);
       return;
     }
 
@@ -353,24 +263,12 @@ const newPath: [number, number][] = steps.flatMap(
       (pos) => {
         if (cancelled) return;
         const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        baseRef.current = p;
-
-        if (TRACK_MODE === "demo") alignDemoRouteToBase(p);
-
-        trackRef.current = [];
-        lastKeptAtRef.current = 0;
-        pushPoint(p, Date.now());
+        initWithBase(p);
       },
       () => {
         if (cancelled) return;
-        baseRef.current = fallback;
-
-        if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
-
-        trackRef.current = [];
-        lastKeptAtRef.current = 0;
-        pushPoint(fallback, Date.now());
         toast.error("Location permission denied, using demo location.");
+        initWithBase(fallback);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -380,24 +278,6 @@ const newPath: [number, number][] = steps.flatMap(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // 🚨 Off-route detection & re-routing
-useEffect(() => {
-  if (!selectedRoute?.path) return;
-  if (!currentLocation) return;
-  if (isReRoutingRef.current) return;
-  if (!window.google?.maps?.geometry) return;
-  const off = isOffRoute(currentLocation, selectedRoute.path);
-
-  if (off) {
-    console.log("🚨 Off route, re-routing...");
-    isReRoutingRef.current = true;
-    rerouteFromCurrentLocation();
-  }
-}, [currentLocation, selectedRoute?.path]);
-// 🧭 Re-route from current location (Google Maps like)
-
-
-
 
   // 计时：只负责 UI 时间；距离/速度用真实 track 算
   useEffect(() => {
@@ -436,11 +316,13 @@ useEffect(() => {
       return () => navigator.geolocation.clearWatch(watchId);
     }
 
-    // DEMO：沿平移后的路线前进 + 少量噪声
+    // DEMO：沿后端路线推进（沿道路）+ 极小噪声（可选）
     const interval = setInterval(() => {
+      // 保险：如果还没准备好，就用当前位置再拉一次
       if (!demoRouteReadyRef.current) {
-        // 保险：如果初始化没拿到 base，也对齐一次
-        alignDemoRouteToBase(getBase());
+        const b = getBase();
+        prepareDemoRoute(b);
+        return;
       }
 
       const route = demoRouteRef.current;
@@ -452,7 +334,7 @@ useEffect(() => {
       let a = route[seg];
       let b = route[seg + 1];
 
-      const stepM = DEMO_SPEED_MPS;
+      const stepM = DEMO_SPEED_MPS; // 每秒前进的米数
       const segLenM = haversineMeters(a, b);
       const dt = segLenM > 0 ? stepM / segLenM : 1;
 
@@ -465,6 +347,7 @@ useEffect(() => {
         b = route[seg + 1];
       }
 
+      // 到终点：循环（你也可以改成 stop）
       if (seg >= route.length - 1) {
         seg = 0;
         tt = 0;
@@ -472,18 +355,46 @@ useEffect(() => {
         b = route[1];
       }
 
+      // 插值推进（仍然沿路的 polyline 点连线）
       let lat = lerp(a[0], b[0], tt);
       let lng = lerp(a[1], b[1], tt);
 
-      const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
-      const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
+      // ✅ 极小噪声（0~1m），保持“像 GPS”，但不会明显偏离道路
+      if (DEMO_NOISE_M > 0) {
+        const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
+        const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
+        lat += nLat;
+        lng += nLng;
+      }
 
-      const next: [number, number] = [lat + nLat, lng + nLng];
+      const next: [number, number] = [lat, lng];
 
       demoSegRef.current = seg;
       demoTRef.current = tt;
 
+      baseRef.current = next;
       pushPoint(next, Date.now());
+
+      // issue demo（可选）
+      if (Math.random() < 0.03) {
+        const issueLoc: [number, number] = [
+          next[0] + (Math.random() - 0.5) * metersToLat(2),
+          next[1] + (Math.random() - 0.5) * metersToLng(2, next[0]),
+        ];
+
+        const newIssue: Issue = {
+          id: `issue-${Date.now()}`,
+          type: "pothole",
+          location: issueLoc,
+          severity: "medium",
+          status: "pending",
+          date: new Date().toISOString(),
+          autoDetected: true,
+        };
+
+        setCurrentIssue(newIssue);
+        setShowIssueAlert(true);
+      }
     }, 1000);
 
     return () => clearInterval(interval);
@@ -551,84 +462,16 @@ useEffect(() => {
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
-      <div className="flex-1 relative ">
-       {/* ===== Map ===== */}
-<MapView
-  
-  userPath={path}
-
-  /** 当前定位点 */
-  currentLocation={path.length ? path[path.length - 1] : undefined}
-
-  /** 路况问题 */
-  issues={detectedIssues.map((issue) => ({
-    location: issue.location,
-    type: issue.type,
-  }))}
-  followUser
-
-  /** 路线显示 */
-  paths={(() => {
-    // 没有规划路线，直接不画导航
-    if (!selectedRoute?.path || selectedRoute.path.length < 2) {
-      return [];
-    }
-
-    // 当前定位
-    const current =
-      path.length > 0 ? path[path.length - 1] : undefined;
-
-    if (!current) {
-      return [
-        {
-          id: "route-all",
-          path: selectedRoute.path,
-          color: "#2563eb",
-          weight: 6,
-        },
-      ];
-    }
-
-    // 找最近的路线点
-    let minDist = Infinity;
-    let closestIndex = 0;
-
-    for (let i = 0; i < selectedRoute.path.length; i++) {
-      const d = haversineMeters(
-        selectedRoute.path[i],
-        current
-      );
-      if (d < minDist) {
-        minDist = d;
-        closestIndex = i;
-      }
-    }
-
-    // 切割路线
-    const passed = selectedRoute.path.slice(
-      0,
-      closestIndex + 1
-    );
-    const remaining = selectedRoute.path.slice(closestIndex);
-
-    return [
-      {
-        id: "route-passed",
-        path: passed,
-        color: "#94a3b8", // 灰色：已走
-        weight: 6,
-      },
-      {
-        id: "route-remaining",
-        path: remaining,
-        color: "#2563eb", // 蓝色：未走（高亮）
-        weight: 6,
-      },
-    ];
-  })()}
-/>
-
-
+      <div className="flex-1 relative">
+        <MapView
+          userPath={path}
+          currentLocation={path.length ? path[path.length - 1] : undefined}
+          issues={detectedIssues.map((issue) => ({
+            location: issue.location,
+            type: issue.type,
+          }))}
+          followUser
+        />
       </div>
 
       <motion.div
@@ -655,17 +498,14 @@ useEffect(() => {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
       >
         <Button
-  className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
-  onClick={(e) => {
-    console.log("🟥 STOP BUTTON CLICKED", e);
-    handleStop();
-  }}
->
-  <StopCircleIcon className="w-10 h-10" />
-</Button>
+          className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-2xl"
+          onClick={handleStop}
+        >
+          <StopCircleIcon className="w-10 h-10" />
+        </Button>
       </motion.div>
 
       {detectedIssues.length > 0 && (

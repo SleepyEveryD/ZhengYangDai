@@ -1,11 +1,9 @@
-import React from "react";
 import { Button } from "./ui/button";
 import { useAuth } from "../auth/AuthContext";
 import {
   ArrowLeftIcon,
   StarIcon,
   MessageCircleIcon,
-  TrendingUpIcon,
   AlertCircleIcon,
   LogInIcon,
 } from "lucide-react";
