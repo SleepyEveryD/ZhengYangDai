@@ -97,8 +97,8 @@ export class RideService {
       streets,
       issues,
     } = payload;
-    console.log("Confirm payload", payload);
-    console.log("Confirm userId", userId);
+    //console.log("Confirm payload", payload);
+    //console.log("Confirm userId", userId);
     
     
     

@@ -101,8 +101,7 @@ export default function
       IssueType.POTHOLE
     );
     
-  const [newIssueSeverity, setNewIssueSeverity] =
-    useState<"low" | "medium" | "high">("medium");
+
   const [newIssueDescription, setNewIssueDescription] = useState("");
 
   /* =========================
@@ -116,16 +115,7 @@ export default function
   const getIssueTypeText = (type: IssueType) => ISSUE_TYPE_LABEL[type] ?? "Other";
 
 
-  const getSeverityText = (s: string) =>
-    ({ low: "Minor", medium: "Moderate", high: "Severe" } as any)[s] ??
-    "Unknown";
 
-  const getSeverityColor = (s: string) =>
-    ({
-      low: "bg-yellow-100 text-yellow-800",
-      medium: "bg-orange-100 text-orange-800",
-      high: "bg-red-100 text-red-800",
-    } as any)[s] ?? "bg-gray-100 text-gray-800";
 
   /* =========================
      Map click (Issue only)
@@ -164,7 +154,6 @@ export default function
             ? {
                 ...i,
                 type: newIssueType,
-                severity: newIssueSeverity,
                 description: newIssueDescription,
                 location: selectedIssueLocation,
               }
@@ -175,7 +164,6 @@ export default function
           {
             id: `manual-${Date.now()}`,
             type: newIssueType,
-            severity: newIssueSeverity,
             location: selectedIssueLocation,
             description: newIssueDescription,
             status: "confirmed",
@@ -197,7 +185,6 @@ export default function
     setMapMode("issue");
     setSelectedIssueLocation(issue.location);
     setNewIssueType(issue.type);
-    setNewIssueSeverity(issue.severity);
     setNewIssueDescription(issue.description || "");
   };
 
@@ -295,24 +282,6 @@ export default function
                 </div>
 
 
-                {/* Severity Level */}
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Severity Level</Label>
-                  <Select
-                    value={newIssueSeverity}
-                    onValueChange={(v: any) => setNewIssueSeverity(v)}
-                  >
-                    <SelectTrigger className="h-12 bg-gray-50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Minor</SelectItem>
-                      <SelectItem value="medium">Moderate</SelectItem>
-                      <SelectItem value="high">Severe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Location */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
@@ -388,9 +357,7 @@ export default function
                               {getIssueTypeText(issue.type as IssueType)}
 
                             </span>
-                            <Badge className={getSeverityColor(issue.severity)}>
-                              {getSeverityText(issue.severity)}
-                            </Badge>
+                            
                           </div>
                           <p className="text-xs text-gray-600">
                             {issue.location[0].toFixed(4)},{" "}
