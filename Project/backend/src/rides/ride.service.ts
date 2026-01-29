@@ -73,9 +73,9 @@ export class RideService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      /* -------------------------------
+      /* --------------------------------
        * 1. Create / Confirm Ride
-       * ------------------------------- */
+       * -------------------------------- */
       await tx.$executeRaw`
         INSERT INTO "Ride" (
           id,
@@ -93,7 +93,7 @@ export class RideService {
           ST_SetSRID(
             ST_GeomFromGeoJSON(${JSON.stringify(routeGeoJson)}),
             4326
-          ),
+          )::geography,
           'CONFIRMED'::"RideStatus",
           ${startedAt ? new Date(startedAt) : new Date()},
           ${endedAt ? new Date(endedAt) : new Date()}
@@ -108,9 +108,10 @@ export class RideService {
           "endedAt" = EXCLUDED."endedAt"
       `;
 
-      /* -------------------------------
-       * 2. Streets & Reports
-       * ------------------------------- */
+  
+      /* --------------------------------
+       * 2. Streets & StreetReports
+       * -------------------------------- */
       for (const street of streets) {
         if (!street?.externalId) continue;
 
@@ -182,6 +183,9 @@ export class RideService {
       return { success: true, rideId };
     });
   }
+  
+  
+  
 
   /**
    * 获取 Ride 详情（包含关联的 reports）
@@ -214,5 +218,14 @@ export class RideService {
         issues: true,
       },
     });
+  
+    if (!ride) {
+      throw new NotFoundException("Ride not found");
+    }
+  
+    return ride;
   }
+  
+  
+  
 }

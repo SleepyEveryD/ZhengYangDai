@@ -33,3 +33,6 @@ export function findNearestPathIndex(
 
   return { index: bestIndex, distance2: bestDist };
 }
+
+
+

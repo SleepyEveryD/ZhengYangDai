@@ -29,6 +29,10 @@ import { findNearestPathIndex } from '../utils/geo';
 import { useAuth } from '../auth/AuthContext';
 import Weather from './Weather';
 import { supabase } from "../lib/supabase";
+import IssueList from "./IssueList";
+import RoadConditionList from "./RoadConditionList";
+import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
+import RoadConditionReportDialog from "./RideReportEditorDialog";
 
 export enum RoadCondition {
   EXCELLENT = 'EXCELLENT',
@@ -53,7 +57,6 @@ function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
 
   return ride.streets.map((street: any, i: number) => {
     const idx = street.positions[0].index;
-
     let start = idx;
     let end = idx;
 
@@ -78,6 +81,10 @@ function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
     };
   });
 }
+
+/* =========================
+   Component
+========================= */
 
 export default function RideRecordConfirm() {
   const { user } = useAuth();
@@ -245,6 +252,66 @@ export default function RideRecordConfirm() {
     setIsAddingIssue(false);
     toast.success('Issue added successfully');
   };
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportTab, setReportTab] =
+    useState<"issues" | "conditions">("issues");
+
+  const [conditionsConfirmed, setConditionsConfirmed] = useState(false);
+
+  /* ---------- init segments ---------- */
+
+  useEffect(() => {
+    setRoadConditionSegments(buildSegmentsFromStreets(ride));
+  }, [ride]);
+
+  /* =========================
+     Save logic
+  ========================= */
+
+  type RideStatus = "DRAFT" | "CONFIRMED";
+
+  const saveRide = (status: RideStatus) => {
+    if (issues.some((i) => i.status === "pending")) {
+      toast.error("Please confirm or ignore all pending issues");
+      return;
+    }
+
+    if (roadConditionSegments.length === 0) {
+      toast.error("Please add at least one road condition segment");
+      setReportTab("conditions");
+      setShowReportDialog(true);
+      return;
+    }
+
+    const finalRide = {
+      ...ride,
+      issues,
+      roadConditionSegments,
+      status,
+      uploadStatus: "pending",
+      confirmedAt: new Date().toISOString(),
+    };
+
+    saveRideLocal(finalRide);
+    toast.success("Ride saved locally");
+    navigate("/map");
+  };
+
+  const handleSaveOnly = () => saveRide("DRAFT");
+
+  const handleSaveAndPublish = () => {
+    if (!conditionsConfirmed) {
+      toast.error("Please save road condition reports first");
+      setReportTab("conditions");
+      setShowReportDialog(true);
+      return;
+    }
+    saveRide("CONFIRMED");
+  };
+
+  const confirmedIssues = issues.filter(
+    (i) => i.status === "confirmed"
+  );
 
   const handleEditIssue = (issueId: string) => {
     const issue = issues.find((i) => i.id === issueId);
@@ -387,6 +454,14 @@ export default function RideRecordConfirm() {
       console.error(e);
       toast.error(`Publish failed: ${e?.message ?? 'unknown error'}`);
     }
+  /* =========================
+     Render
+  ========================= */
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}min ${secs}sec`;
   };
 
   const handleSaveOnly = () => saveRideLocalOnly('DRAFT');
@@ -394,44 +469,52 @@ export default function RideRecordConfirm() {
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b bg-white z-10">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/map')} className="h-10 w-10">
+      <div className="flex items-center gap-3 p-4 border-b">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/map")}
+        >
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
         <h2 className="text-gray-900">Confirm Ride Data</h2>
       </div>
 
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {/* Map */}
         <div className="h-64">
           <MapView
             userPath={ride.path}
-            issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
-            onMapClick={mapMode !== 'none' ? handleMapClick : undefined}
+            issues={issues.map((i) => ({
+              location: i.location,
+              type: i.type,
+              description: i.description
+            }))}
           />
         </div>
 
         <div className="p-4 space-y-6">
-          {/* Ride Stats */}
+          {/* Stats */}
           <Card>
             <CardContent className="p-4">
-              <h3 className="text-gray-900 mb-4">Ride Stats</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <h3 className="mb-4">Ride Stats</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-600 mb-1">Total Distance</p>
-                  <p className="text-gray-900">{ride.distance} km</p>
+                  <p className="text-gray-500">Distance</p>
+                  <p>{ride.distance} km</p>
                 </div>
                 <div>
-                  <p className="text-gray-600 mb-1">Total Duration</p>
-                  <p className="text-gray-900">{formatTime(ride.duration)}</p>
+                  <p className="text-gray-500">Duration</p>
+                  <p>{formatTime(ride.duration)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600 mb-1">Avg Speed</p>
-                  <p className="text-gray-900">{ride.avgSpeed} km/h</p>
+                  <p className="text-gray-500">Avg Speed</p>
+                  <p>{ride.avgSpeed} km/h</p>
                 </div>
                 <div>
-                  <p className="text-gray-600 mb-1">Max Speed</p>
-                  <p className="text-gray-900">{ride.maxSpeed} km/h</p>
+                  <p className="text-gray-500">Max Speed</p>
+                  <p>{ride.maxSpeed} km/h</p>
                 </div>
               </div>
             </CardContent>
@@ -499,11 +582,17 @@ export default function RideRecordConfirm() {
             </div>
           )}
 
+          <Weather />
+
+          <IssueList issues={issues} />
+
           {issues.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center">
                 <CheckCircleIcon className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                <p className="text-gray-600">No road issues detected on this ride</p>
+                <p className="text-gray-600">
+                  No road issues detected on this ride
+                </p>
               </CardContent>
             </Card>
           )}
@@ -558,286 +647,44 @@ export default function RideRecordConfirm() {
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="p-4 border-t bg-white space-y-3">
-        <Button variant="outline" className="w-full h-12" onClick={handleSaveOnly}>
+      {/* Actions */}
+      <div className="p-4 border-t space-y-3">
+        <Button
+          variant="outline"
+          className="w-full h-12"
+          onClick={handleSaveOnly}
+        >
           <SaveIcon className="w-5 h-5 mr-2" />
           Save only
         </Button>
-        <Button className="w-full h-12 bg-green-600 hover:bg-green-700" onClick={handleSaveAndPublish}>
+
+        <Button
+          className="w-full h-12 bg-green-600 hover:bg-green-700"
+          onClick={handleSaveAndPublish}
+        >
           <ShareIcon className="w-5 h-5 mr-2" />
           Save and Publish
-          {confirmedIssues.length > 0 && ` (${confirmedIssues.length} reports)`}
+          {confirmedIssues.length > 0 &&
+            ` (${confirmedIssues.length} reports)`}
         </Button>
       </div>
 
-      {/* Report Road Conditions Dialog */}
-      <Dialog
+      {/* Unified editor dialog */}
+      <RoadConditionReportDialog
         open={showReportDialog}
         onOpenChange={(open) => {
           setShowReportDialog(open);
-          if (!open) {
-            setHighlightSegment(null);
-            setMapMode('none');
-          }
+          if (!open) setConditionsConfirmed(true);
         }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Report Road Conditions</DialogTitle>
-          </DialogHeader>
-
-          <Tabs value={reportTab} onValueChange={(v) => setReportTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="issues">Issue Points</TabsTrigger>
-              <TabsTrigger value="conditions">
-                Road Segments
-                {roadConditionSegments.length > 0 && (
-                  <span className="ml-2 bg-blue-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                    {roadConditionSegments.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-
-            {/* issues tab（你原来的完整 UI 直接放回这里也行） */}
-            <TabsContent value="issues" className="space-y-4 mt-4">
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <p className="text-blue-900 text-sm">
-                    <strong>Tip:</strong> Tap on the map below to place a marker where you encountered an issue.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <div className="border rounded-lg overflow-hidden">
-                <div className="h-48 bg-gray-100 relative">
-                  <MapView
-                    userPath={ride.path}
-                    issues={issues.map((issue) => ({ location: issue.location, type: issue.type }))}
-                    onMapClick={mapMode === 'issue' ? handleMapClick : undefined}
-                  />
-                </div>
-              </div>
-
-              {!isAddingIssue && (
-                <Button
-                  className="w-full h-12 bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    setIsAddingIssue(true);
-                    setMapMode('issue');
-                    setEditingIssueId(null);
-                    setSelectedIssueLocation(null);
-                    setNewIssueDescription('');
-                  }}
-                >
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Add Issue Point
-                </Button>
-              )}
-
-              {isAddingIssue && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 p-4 border-2 border-green-600 rounded-lg bg-green-50">
-                  <h4 className="text-gray-900 font-medium">{editingIssueId ? 'Edit Issue' : 'New Issue'}</h4>
-
-                  <div className="space-y-3">
-                    <div>
-                      <Label>Issue Type</Label>
-                      <Select value={newIssueType} onValueChange={(v: any) => setNewIssueType(v)}>
-                        <SelectTrigger className="h-12">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pothole">Pothole</SelectItem>
-                          <SelectItem value="crack">Crack</SelectItem>
-                          <SelectItem value="obstacle">Obstacle</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Severity Level</Label>
-                      <Select value={newIssueSeverity} onValueChange={(v: any) => setNewIssueSeverity(v)}>
-                        <SelectTrigger className="h-12">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Minor</SelectItem>
-                          <SelectItem value="medium">Moderate</SelectItem>
-                          <SelectItem value="high">Severe</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Location (Tap map to select)</Label>
-                      <div className="text-sm text-gray-600 bg-white p-3 rounded border">
-                        {selectedIssueLocation ? `${selectedIssueLocation[0].toFixed(4)}, ${selectedIssueLocation[1].toFixed(4)}` : 'Click on the map above to set location'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Description (Optional)</Label>
-                      <Textarea
-                        placeholder="Describe the issue..."
-                        value={newIssueDescription}
-                        onChange={(e) => setNewIssueDescription(e.target.value)}
-                        className="min-h-20"
-                      />
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-12"
-                        onClick={() => {
-                          setIsAddingIssue(false);
-                          setMapMode('none');
-                          setEditingIssueId(null);
-                          setSelectedIssueLocation(null);
-                          setNewIssueDescription('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button className="flex-1 h-12 bg-orange-600 hover:bg-orange-700" onClick={editingIssueId ? handleUpdateIssue : handleAddManualIssue}>
-                        {editingIssueId ? 'Update' : 'Add'} Issue
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {issues.filter((i) => !i.autoDetected).length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-gray-900 font-medium">Manual Issues ({issues.filter((i) => !i.autoDetected).length})</h4>
-                  {issues
-                    .filter((i) => !i.autoDetected)
-                    .map((issue) => (
-                      <Card key={issue.id}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium">{getIssueTypeText(issue.type)}</span>
-                                <Badge className={getSeverityColor(issue.severity)} variant="secondary">
-                                  {getSeverityText(issue.severity)}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-gray-600">
-                                {issue.location[0].toFixed(4)}, {issue.location[1].toFixed(4)}
-                              </p>
-                              {issue.description && <p className="text-sm text-gray-600 mt-1">{issue.description}</p>}
-                            </div>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditIssue(issue.id)}>
-                                <EditIcon className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteIssue(issue.id)}>
-                                <TrashIcon className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* conditions tab：核心就是 Select 改 condition + notes */}
-            <TabsContent value="conditions" className="space-y-4 mt-4">
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <p className="text-blue-900 text-sm">
-                    <strong>Tip:</strong> Rate each street segment.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <div className="border rounded-lg overflow-hidden">
-                <div className="h-48 bg-gray-100 relative">
-                  <MapView userPath={ride.path} issues={[]} selectedSegment={highlightSegment ?? undefined} />
-                </div>
-              </div>
-
-              {roadConditionSegments.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-gray-900 font-medium">Road Segments ({roadConditionSegments.length})</h4>
-
-                  {roadConditionSegments.map((segment) => (
-                    <Card
-                      key={segment.id}
-                      className="cursor-pointer hover:border-blue-500 transition"
-                      onClick={() => setHighlightSegment({ startIndex: segment.startPoint, endIndex: segment.endPoint })}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{segment.name}</p>
-                            <p className="text-xs text-gray-600">streetExternalId: {segment.streetExternalId}</p>
-                          </div>
-
-                          <Select
-                            value={segment.condition}
-                            onValueChange={(v) => {
-                              setRoadConditionSegments((prev) =>
-                                prev.map((s) => (s.id === segment.id ? { ...s, condition: v as RoadCondition } : s)),
-                              );
-                            }}
-                          >
-                            <SelectTrigger className="w-[180px] h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={RoadCondition.EXCELLENT}>Excellent</SelectItem>
-                              <SelectItem value={RoadCondition.GOOD}>Good</SelectItem>
-                              <SelectItem value={RoadCondition.FAIR}>Fair</SelectItem>
-                              <SelectItem value={RoadCondition.NEED_REPAIR}>Needs Repair</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="mt-3">
-                          <Label className="text-xs">Notes (optional)</Label>
-                          <Textarea
-                            className="min-h-16 mt-1"
-                            placeholder="Write notes..."
-                            value={segment.notes ?? ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setRoadConditionSegments((prev) =>
-                                prev.map((s) => (s.id === segment.id ? { ...s, notes: val } : s)),
-                              );
-                            }}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex gap-3 pt-4 border-t">
-            <Button variant="outline" className="flex-1 h-12" onClick={() => setShowReportDialog(false)}>
-              Close
-            </Button>
-            <Button
-              className="flex-1 h-12 bg-green-600 hover:bg-green-700"
-              onClick={() => {
-                setConditionsConfirmed(true);
-                setShowReportDialog(false);
-                toast.success('Road conditions saved');
-              }}
-            >
-              <CheckCircleIcon className="w-5 h-5 mr-2" />
-              Save Reports
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        ride={ride}
+        issues={issues}
+        segments={roadConditionSegments}
+        defaultTab={reportTab}
+        onChange={({ issues, segments }) => {
+          setIssues(issues);
+          setRoadConditionSegments(segments);
+        }}
+      />
     </div>
   );
 }

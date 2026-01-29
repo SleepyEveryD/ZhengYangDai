@@ -1,56 +1,67 @@
-import { useEffect } from 'react';
-import api from '../lib/api';
+import { useEffect } from "react";
+import api from "../lib/api";
+import { RIDE_QUEUE_UPDATED } from "../constants/events";
 
-const STORAGE_KEY = 'current_ride';
+const STORAGE_KEY = "current_ride";
 
 export function useRideUploader() {
   useEffect(() => {
+    let uploading = false;
+
     const upload = async () => {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        console.log('📭 no ride in localStorage');
-        return;
-      }
-
-      const ride = JSON.parse(raw);
-
-      // ✅ 1️⃣ 只处理 pending
-      if (ride.uploadStatus !== 'pending') {
-        console.log('⏭️ skip upload, uploadStatus:', ride.uploadStatus);
-        return;
-      }
-
-      // ✅ 2️⃣ 构造 confirm payload（必须包含 status）
-      const { uploadStatus, ...payload } = ride;
-
-      if (payload.status !== 'CONFIRMED') {
-        console.warn('⚠️ ride is not CONFIRMED, skip upload');
-        return;
-      }
+      if (uploading) return; // ✅ 防并发
+      uploading = true;
 
       try {
-        console.log('⬆️ confirming ride', payload.id);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          console.log("📭 no ride in localStorage");
+          return;
+        }
 
-        // ✅ 3️⃣ 只调用 confirm（一次性完成）
-        await api.post(`/rides/${payload.id}/confirm`, payload);
+        const ride = JSON.parse(raw);
 
-        // ✅ 4️⃣ 标记已上传
+        if (ride.uploadStatus !== "pending") {
+          console.log("⏭️ skip upload, uploadStatus:", ride.uploadStatus);
+          return;
+        }
+
+        const { uploadStatus, ...payload } = ride;
+
+        if (payload.status === "DRAFT") {
+          console.log("⬆️ saving ride", payload.id);
+          console.log("⬆️ playlod", payload.issues);
+   
+          await api.put(`/rides/${payload.id}/save`, payload);
+        } else {
+          console.log("⬆️ confirming ride", payload.id);
+          await api.post(`/rides/${payload.id}/confirm`, payload);
+        }
+
+        // ✅ 2️⃣ 标记为 uploaded
         const updatedRide = {
           ...ride,
-          uploadStatus: 'uploaded',
+          uploadStatus: "uploaded",
         };
 
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(updatedRide)
-        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRide));
 
-        console.log('✅ upload success, marked as uploaded');
+        console.log("✅ upload success, marked as uploaded");
       } catch (e) {
-        console.error('❌ upload failed', e);
+        console.error("❌ upload failed", e);
+      } finally {
+        uploading = false;
       }
     };
 
+    // ⭐ 关键 1：监听 Confirm 触发的事件
+    window.addEventListener(RIDE_QUEUE_UPDATED, upload);
+
+    // ⭐ 关键 2：页面首次加载也跑一次（兜底）
     upload();
+
+    return () => {
+      window.removeEventListener(RIDE_QUEUE_UPDATED, upload);
+    };
   }, []);
 }
