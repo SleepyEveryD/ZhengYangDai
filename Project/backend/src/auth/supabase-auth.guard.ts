@@ -44,9 +44,6 @@ import {
       const user = result.data?.user;
       const supabaseError = result.error;
   
-      console.log('SUPABASE ERROR:', supabaseError);
-      console.log('SUPABASE USER:', user);
-  
       if (supabaseError || !user) {
         throw new UnauthorizedException('Invalid or expired token');
       }

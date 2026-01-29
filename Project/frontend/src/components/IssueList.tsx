@@ -73,18 +73,25 @@ export default function IssueList({
 
 /* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
 
-function getIssueTypeText(type: string) {
-  switch (type) {
-    case "pothole":
-      return "Pothole";
-    case "crack":
-      return "Crack";
-    case "obstacle":
-      return "Obstacle";
+function getIssueTypeText(type: unknown) {
+  const value = String(type).toLowerCase();
+
+  switch (value) {
+    case 'pothole':
+      return 'Pothole';
+    case 'bump':
+      return 'Bump';
+    case 'gravel':
+      return 'Gravel';
+    case 'construction':
+      return 'Construction';
+    case 'other':
+      return 'Other';
     default:
-      return "Other";
+      return 'Other';
   }
 }
+
 
 function getSeverityColor(severity: string) {
   switch (severity) {
