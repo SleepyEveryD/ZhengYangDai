@@ -230,9 +230,7 @@ export default function RideDetail() {
 
   if (!ride) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        Ride not found
-      </div>
+      navigate("/rides")
     );
   }
 
