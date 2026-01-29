@@ -1,9 +1,11 @@
+import React from "react";
 import { Button } from "./ui/button";
 import { useAuth } from "../auth/AuthContext";
 import {
   ArrowLeftIcon,
   StarIcon,
   MessageCircleIcon,
+  TrendingUpIcon,
   AlertCircleIcon,
   LogInIcon,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import { saveRideLocal } from '../services/rideStorage';
 export default function PathDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const location = useLocation();
 
   const route = location.state?.route as Route | undefined;
@@ -50,7 +53,7 @@ export default function PathDetail() {
         return "bg-blue-100 text-blue-800";
       case "fair":
         return "bg-yellow-100 text-yellow-800";
-      case "needRepair":
+      case "poor":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -65,8 +68,8 @@ export default function PathDetail() {
         return "Good";
       case "fair":
         return "Fair";
-      case "needRepair":
-        return "Need Repair";
+      case "poor":
+        return "Poor";
       default:
         return "Unknown";
     }
