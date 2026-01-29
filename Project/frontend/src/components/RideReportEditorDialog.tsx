@@ -68,7 +68,8 @@ type Props = {
    Component
 ========================= */
 
-export default function RoadConditionReportDialog({
+export default function 
+({
   open,
   onOpenChange,
   ride,

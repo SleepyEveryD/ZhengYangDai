@@ -179,6 +179,7 @@ export default function RideRecordConfirm() {
             issues={issues.map((i) => ({
               location: i.location,
               type: i.type,
+              description: i.description
             }))}
           />
         </div>
