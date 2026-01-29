@@ -12,7 +12,7 @@ type Issue = {
 
 type IssueListProps = {
   issues: Issue[];
-  title?: string; // 允许自定义标题
+  title?: string;
 };
 
 export default function IssueList({
@@ -26,7 +26,7 @@ export default function IssueList({
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <AlertCircleIcon className="w-5 h-5 text-gray-600" />
-        <span className="text-gray-900">
+        <span className="text-gray-900 font-medium">
           {title} ({issues.length})
         </span>
       </div>
@@ -35,9 +35,10 @@ export default function IssueList({
       <div className="space-y-3">
         {issues.map((issue) => (
           <Card key={issue.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-900">
+            <CardContent className="p-4 space-y-2">
+              {/* type + severity */}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-900 font-medium">
                   {getIssueTypeText(issue.type)}
                 </span>
 
@@ -48,14 +49,18 @@ export default function IssueList({
                 )}
               </div>
 
-              <p className="text-gray-600 text-sm">
+              {/* location */}
+              <p className="text-gray-600 text-xs">
                 {issue.location[0].toFixed(5)},{" "}
                 {issue.location[1].toFixed(5)}
               </p>
 
-              {issue.description && (
-                <p className="text-gray-500 text-sm mt-1">
-                  {issue.description}
+              {/* description */}
+              {issue.description !== undefined && (
+                <p className="text-gray-500 text-sm leading-snug">
+                  {issue.description.trim()
+                    ? issue.description
+                    : ""}
                 </p>
               )}
             </CardContent>
@@ -66,7 +71,7 @@ export default function IssueList({
   );
 }
 
-/* ---------------- helpers（和 Confirming Page 保持一致） ---------------- */
+/* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
 
 function getIssueTypeText(type: string) {
   switch (type) {

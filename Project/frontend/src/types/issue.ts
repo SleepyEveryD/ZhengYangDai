@@ -1,10 +1,11 @@
-export type IssueType =
-  | 'NONE'
-  | 'POTHOLE'
-  | 'BUMP'
-  | 'GRAVEL'
-  | 'CONSTRUCTION'
-  | 'OTHER';
+export enum IssueType {
+  POTHOLE = "POTHOLE",
+  BUMP = "BUMP",
+  GRAVEL = "GRAVEL",
+  CONSTRUCTION = "CONSTRUCTION",
+  OTHER = "OTHER",
+}
+
 
 
 export type Issue = {
