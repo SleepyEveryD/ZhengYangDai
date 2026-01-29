@@ -1,8 +1,10 @@
 {
+  //test
     "rewrites": [
       {
         "source": "/(.*)",
         "destination": "/index.html"
+
       }
     ]
   }
