@@ -18,6 +18,7 @@ import { motion } from "motion/react";
 import MapView from "./MapView";
 import type { Ride } from "../types/ride";
 import { findNearestPathIndex } from "../utils/geo";
+import { IssueType } from "../types/issue";
 
 /* =========================
    Types
@@ -37,6 +38,17 @@ export type RoadConditionSegment = {
   endPoint: number;
   condition: RoadCondition;
   pathCoordinates: [number, number][];
+};
+/* =========================
+   Constants
+========================= */
+
+const ISSUE_TYPE_LABEL: Record<IssueType, string> = {
+  [IssueType.POTHOLE]: "Pothole",
+  [IssueType.BUMP]: "Bump",
+  [IssueType.GRAVEL]: "Gravel",
+  [IssueType.CONSTRUCTION]: "Construction",
+  [IssueType.OTHER]: "Other",
 };
 
 type Props = {
@@ -67,6 +79,10 @@ export default function RoadConditionReportDialog({
 }: Props) {
   const [tab, setTab] = useState<"issues" | "conditions">(defaultTab);
 
+  
+
+
+
   /* ---------- map / issue mode ---------- */
   const [mapMode, setMapMode] = useState<"none" | "issue">("none");
   const [highlightSegment, setHighlightSegment] = useState<{
@@ -80,8 +96,10 @@ export default function RoadConditionReportDialog({
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
   const [selectedIssueLocation, setSelectedIssueLocation] =
     useState<[number, number] | null>(null);
-  const [newIssueType, setNewIssueType] =
-    useState<"pothole" | "crack" | "obstacle">("pothole");
+    const [newIssueType, setNewIssueType] = useState<IssueType>(
+      IssueType.POTHOLE
+    );
+    
   const [newIssueSeverity, setNewIssueSeverity] =
     useState<"low" | "medium" | "high">("medium");
   const [newIssueDescription, setNewIssueDescription] = useState("");
@@ -89,12 +107,13 @@ export default function RoadConditionReportDialog({
   /* =========================
      Utils
   ========================= */
+
+  const isOther = newIssueType === IssueType.OTHER;
  
   
 
-  const getIssueTypeText = (type: string) =>
-    ({ pothole: "Pothole", crack: "Crack", obstacle: "Obstacle" } as any)[type] ??
-    "Other";
+  const getIssueTypeText = (type: IssueType) => ISSUE_TYPE_LABEL[type] ?? "Other";
+
 
   const getSeverityText = (s: string) =>
     ({ low: "Minor", medium: "Moderate", high: "Severe" } as any)[s] ??
@@ -131,6 +150,12 @@ export default function RoadConditionReportDialog({
 
   const saveIssue = () => {
     if (!selectedIssueLocation) return;
+    const isOther = newIssueType === IssueType.OTHER;
+
+    if (isOther && !newIssueDescription.trim()) {
+      alert("Please provide a description for 'Other' issue type.");
+      return;
+    }
 
     const nextIssues = editingIssueId
       ? issues.map((i) =>
@@ -249,20 +274,25 @@ export default function RoadConditionReportDialog({
                 {/* Issue Type */}
                 <div className="space-y-1">
                   <Label className="text-sm font-medium">Issue Type</Label>
+
                   <Select
                     value={newIssueType}
-                    onValueChange={(v: any) => setNewIssueType(v)}
+                    onValueChange={(v) => setNewIssueType(v as IssueType)}
                   >
                     <SelectTrigger className="h-12 bg-gray-50">
                       <SelectValue />
                     </SelectTrigger>
+
                     <SelectContent>
-                      <SelectItem value="pothole">Pothole</SelectItem>
-                      <SelectItem value="crack">Crack</SelectItem>
-                      <SelectItem value="obstacle">Obstacle</SelectItem>
+                      {(Object.values(IssueType) as IssueType[]).map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {ISSUE_TYPE_LABEL[type]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+
 
                 {/* Severity Level */}
                 <div className="space-y-1">
@@ -354,7 +384,8 @@ export default function RoadConditionReportDialog({
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm">
-                              {getIssueTypeText(issue.type)}
+                              {getIssueTypeText(issue.type as IssueType)}
+
                             </span>
                             <Badge className={getSeverityColor(issue.severity)}>
                               {getSeverityText(issue.severity)}
