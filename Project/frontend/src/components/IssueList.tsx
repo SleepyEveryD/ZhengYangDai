@@ -7,7 +7,7 @@ type Issue = {
   type: string;
   severity?: string;
   location: [number, number];
-  notes?: string;
+  description?: string;
 };
 
 type IssueListProps = {
@@ -55,11 +55,11 @@ export default function IssueList({
                 {issue.location[1].toFixed(5)}
               </p>
 
-              {/* notes */}
-              {issue.notes !== undefined && (
+              {/* description */}
+              {issue.description !== undefined && (
                 <p className="text-gray-500 text-sm leading-snug">
-                  {issue.notes.trim()
-                    ? issue.notes
+                  {issue.description.trim()
+                    ? issue.description
                     : ""}
                 </p>
               )}
@@ -73,25 +73,18 @@ export default function IssueList({
 
 /* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
 
-function getIssueTypeText(type: unknown) {
-  const value = String(type).toLowerCase();
-
-  switch (value) {
-    case 'pothole':
-      return 'Pothole';
-    case 'bump':
-      return 'Bump';
-    case 'gravel':
-      return 'Gravel';
-    case 'construction':
-      return 'Construction';
-    case 'other':
-      return 'Other';
+function getIssueTypeText(type: string) {
+  switch (type) {
+    case "pothole":
+      return "Pothole";
+    case "crack":
+      return "Crack";
+    case "obstacle":
+      return "Obstacle";
     default:
-      return 'Other';
+      return "Other";
   }
 }
-
 
 function getSeverityColor(severity: string) {
   switch (severity) {
