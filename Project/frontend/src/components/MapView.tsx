@@ -218,6 +218,7 @@ export default function MapView({
       }
     };
   }, [mapReady, onMapClick]);
+  
 
   /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
   useEffect(() => {

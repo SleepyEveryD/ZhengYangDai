@@ -21,24 +21,35 @@ import type { Route } from "../types/route";
 /**
  * TRACK_MODE:
  * - "real": 用真实 GPS 轨迹（watchPosition）
- * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
+ * - "demo": 用预设路线 + 速度推进 + 少量 GPS 抖动（更像真实骑行）
  */
 const TRACK_MODE: "real" | "demo" = "demo";
+/**S
+ * Demo 路线（[lat, lng]）
+ * 这里是一条带转弯的小路线（点与点别太远，demo 更自然）
+ */
+const DEMO_ROUTE_TEMPLATE: [number, number][] = [
+  [45.46350, 9.18760],
+  [45.46355, 9.18820],
+  [45.46360, 9.18890],
+  [45.46362, 9.18940],
+  [45.46390, 9.18980],
+  [45.46440, 9.18985],
+  [45.46495, 9.18988],
+  [45.46530, 9.19020],
+  [45.46560, 9.19060],
+];
 
 /** Demo 速度（m/s）：4~7 比较像骑行 */
 const DEMO_SPEED_MPS = 5.5;
+/** GPS 抖动（米）：2~6 比较真实 */
+const DEMO_NOISE_M = 3;
 
-/**
- * GPS 噪声（米）
- * ✅ 为了“不穿墙”，建议 0~1m
- * 如果你加大噪声，点会偏离道路（又会穿进建筑）
- */
-const DEMO_NOISE_M = 0.5;
 
 // 录制过滤参数（骑行友好）
-const MIN_DIST_M = 8; // ✅ 50 太大，会跳点；8~12 更像骑行
-const MIN_TIME_MS = 2500;
-const MIN_TURN_DEG = 25;
+const MIN_DIST_M = 50; // demo/真实都更自然一点
+const MIN_TIME_MS = 4000;
+const MIN_TURN_DEG = 30;
 
 // ---------- helpers ----------
 const toRad = (d: number) => (d * Math.PI) / 180;
@@ -167,11 +178,9 @@ const computeStatsFromTrack = (track: TrackPoint[]) => {
 
   const distKm = distM / 1000;
   const durationSec =
-    track.length >= 2
-      ? Math.max((track[track.length - 1].t - track[0].t) / 1000, 1)
-      : 1;
+    track.length >= 2 ? Math.max((track[track.length - 1].t - track[0].t) / 1000, 1) : 1;
 
-  const avgKmh = distKm / (durationSec / 3600) || 0;
+  const avgKmh = (distKm / (durationSec / 3600)) || 0;
   const maxKmh = maxMps * 3.6;
 
   return { distKm, durationSec, avgKmh, maxKmh };
@@ -195,23 +204,40 @@ export default function RideRecording() {
   const [showIssueAlert, setShowIssueAlert] = useState(false);
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
 
-  // 基准位置（用于 demo 起点）
   const baseRef = useRef<[number, number] | null>(null);
 
   // 真正录制：带 timestamp
   const trackRef = useRef<TrackPoint[]>([]);
   const lastKeptAtRef = useRef<number>(0);
 
-  // demo：沿路线路径推进
-  const demoRouteRef = useRef<[number, number][]>([]);
+  // demo：沿 route 前进
+  const demoSegRef = useRef(0);
+  const demoTRef = useRef(0);
+  const demoRouteRef = useRef<[number, number][]>(DEMO_ROUTE_TEMPLATE);
   const demoRouteReadyRef = useRef(false);
-  const demoSegRef = useRef(0); // 当前 segment index
-  const demoTRef = useRef(0); // 当前 segment 内插值 0~1
-  const preparingDemoRouteRef = useRef(false);
+  const demoPosRef = useRef<[number, number] | null>(null);
+  const demoHeadingRef = useRef<number>(0); // 0~360
 
   const getBase = useMemo(() => {
     return () => baseRef.current ?? [45.4642, 9.19];
   }, []);
+
+  // demo 路线平移到用户当前位置（关键：防止跨城直线）
+  const alignDemoRouteToBase = (base: [number, number]) => {
+    const [baseLat, baseLng] = base;
+    const [tplLat, tplLng] = DEMO_ROUTE_TEMPLATE[0];
+    const dLat = baseLat - tplLat;
+    const dLng = baseLng - tplLng;
+
+    demoRouteRef.current = DEMO_ROUTE_TEMPLATE.map(([lat, lng]) => [
+      lat + dLat,
+      lng + dLng,
+    ]);
+
+    demoRouteReadyRef.current = true;
+    demoSegRef.current = 0;
+    demoTRef.current = 0;
+  };
 
   // 统一入点：距离阈值 + 转弯阈值 + 时间兜底
   const pushPoint = (p: [number, number], t: number) => {
@@ -310,81 +336,18 @@ const newPath: [number, number][] = steps.flatMap(
   );
 };
 
-  /**
-   * ✅ 关键：准备 demo 路线（沿道路）
-   * 用你后端 /map/analyze 返回的 routes[0].path（[lat,lng][]) 作为 demo 轨迹模板
-   */
-  const prepareDemoRoute = async (base: [number, number]) => {
-    if (preparingDemoRouteRef.current) return;
-    preparingDemoRouteRef.current = true;
-
-    const origin = { lat: base[0], lng: base[1] };
-
-    // demo 用一个附近目的地（约 1~2km 外）
-    const destination = {
-      lat: origin.lat + 0.01,
-      lng: origin.lng + 0.01,
-    };
-
-    try {
-      const res = await fetch("http://localhost:3000/map/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin,
-          destination,
-          travelMode: "BICYCLING",
-        }),
-      });
-
-      const data = await res.json();
-      const demoPath = data?.routes?.[0]?.path as [number, number][] | undefined;
-
-      if (!demoPath || demoPath.length < 2) {
-        toast.error("Demo route not available (backend returned empty path).");
-        demoRouteRef.current = [];
-        demoRouteReadyRef.current = false;
-        return;
-      }
-
-      demoRouteRef.current = demoPath;
-      demoRouteReadyRef.current = true;
-      demoSegRef.current = 0;
-      demoTRef.current = 0;
-
-      // 起点对齐到路线第一个点，避免第一帧跳动
-      baseRef.current = demoPath[0];
-      pushPoint(demoPath[0], Date.now());
-    } catch (e) {
-      console.error("prepareDemoRoute failed", e);
-      toast.error("Failed to prepare demo route.");
-      demoRouteRef.current = [];
-      demoRouteReadyRef.current = false;
-    } finally {
-      preparingDemoRouteRef.current = false;
-    }
-  };
-
-  // 初始化定位：第一帧正确 + demo 路线准备
+  // 初始化定位：第一帧正确 + demo 路线对齐
   useEffect(() => {
     let cancelled = false;
     const fallback: [number, number] = [45.4642, 9.19];
 
-    const initWithBase = async (p: [number, number]) => {
-      baseRef.current = p;
+    if (!("geolocation" in navigator)) {
+      baseRef.current = fallback;
+      if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
 
-      // reset track
       trackRef.current = [];
       lastKeptAtRef.current = 0;
-      pushPoint(p, Date.now());
-
-      if (TRACK_MODE === "demo") {
-        await prepareDemoRoute(p);
-      }
-    };
-
-    if (!("geolocation" in navigator)) {
-      initWithBase(fallback);
+      pushPoint(fallback, Date.now());
       return;
     }
 
@@ -392,12 +355,24 @@ const newPath: [number, number][] = steps.flatMap(
       (pos) => {
         if (cancelled) return;
         const p: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        initWithBase(p);
+        baseRef.current = p;
+
+        if (TRACK_MODE === "demo") alignDemoRouteToBase(p);
+
+        trackRef.current = [];
+        lastKeptAtRef.current = 0;
+        pushPoint(p, Date.now());
       },
       () => {
         if (cancelled) return;
+        baseRef.current = fallback;
+
+        if (TRACK_MODE === "demo") alignDemoRouteToBase(fallback);
+
+        trackRef.current = [];
+        lastKeptAtRef.current = 0;
+        pushPoint(fallback, Date.now());
         toast.error("Location permission denied, using demo location.");
-        initWithBase(fallback);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -463,13 +438,11 @@ useEffect(() => {
       return () => navigator.geolocation.clearWatch(watchId);
     }
 
-    // DEMO：沿后端路线推进（沿道路）+ 极小噪声（可选）
+    // DEMO：沿平移后的路线前进 + 少量噪声
     const interval = setInterval(() => {
-      // 保险：如果还没准备好，就用当前位置再拉一次
       if (!demoRouteReadyRef.current) {
-        const b = getBase();
-        prepareDemoRoute(b);
-        return;
+        // 保险：如果初始化没拿到 base，也对齐一次
+        alignDemoRouteToBase(getBase());
       }
 
       const route = demoRouteRef.current;
@@ -481,7 +454,7 @@ useEffect(() => {
       let a = route[seg];
       let b = route[seg + 1];
 
-      const stepM = DEMO_SPEED_MPS; // 每秒前进的米数
+      const stepM = DEMO_SPEED_MPS;
       const segLenM = haversineMeters(a, b);
       const dt = segLenM > 0 ? stepM / segLenM : 1;
 
@@ -494,7 +467,6 @@ useEffect(() => {
         b = route[seg + 1];
       }
 
-      // 到终点：循环（你也可以改成 stop）
       if (seg >= route.length - 1) {
         seg = 0;
         tt = 0;
@@ -502,31 +474,24 @@ useEffect(() => {
         b = route[1];
       }
 
-      // 插值推进（仍然沿路的 polyline 点连线）
       let lat = lerp(a[0], b[0], tt);
       let lng = lerp(a[1], b[1], tt);
 
-      // ✅ 极小噪声（0~1m），保持“像 GPS”，但不会明显偏离道路
-      if (DEMO_NOISE_M > 0) {
-        const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
-        const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
-        lat += nLat;
-        lng += nLng;
-      }
+      const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
+      const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
 
-      const next: [number, number] = [lat, lng];
+      const next: [number, number] = [lat + nLat, lng + nLng];
 
       demoSegRef.current = seg;
       demoTRef.current = tt;
 
-      baseRef.current = next;
       pushPoint(next, Date.now());
 
-      // issue demo（可选）
+      // issue demo
       if (Math.random() < 0.03) {
         const issueLoc: [number, number] = [
-          next[0] + (Math.random() - 0.5) * metersToLat(2),
-          next[1] + (Math.random() - 0.5) * metersToLng(2, next[0]),
+          next[0] + (Math.random() - 0.5) * metersToLat(5),
+          next[1] + (Math.random() - 0.5) * metersToLng(5, next[0]),
         ];
 
         const newIssue: Issue = {
