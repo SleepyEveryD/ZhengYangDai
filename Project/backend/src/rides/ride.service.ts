@@ -7,7 +7,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { toGeoJSONPointFromFrontend } from '../util/geojson.util';
 
-import { RoadCondition } from '@prisma/client';
 
 interface ConfirmRideInput {
   rideId: string;
@@ -42,11 +41,8 @@ export class RideService {
     if (existing?.status === 'CONFIRMED') {
       throw new ConflictException('Ride already confirmed');
     }
-
-    console.log(
-      '🧭 routeGeoJson',
-      JSON.stringify(routeGeoJson, null, 2),
-    );
+    
+    //console.log('🧭 routeGeoJson',JSON.stringify(routeGeoJson, null, 2),);
 
     try {
       await tx.$executeRaw`
@@ -91,7 +87,7 @@ export class RideService {
 
   /**
    * Confirm Ride（DRAFT → CONFIRMED）
-   * payload 来自前端 body（Controller 已校验 status=CONFIRMED）
+   * 使用 mock street（不调用外部 API）
    */
    async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     const {
@@ -101,11 +97,19 @@ export class RideService {
       streets,
       issues,
     } = payload;
+    //console.log("Confirm payload", payload);
+    //console.log("Confirm userId", userId);
+    
+    
+    
+    
   
     return this.prisma.$transaction(async (tx) => {
       /* --------------------------------
        * 1. Create / Confirm Ride
        * -------------------------------- */
+   
+      
       await tx.$executeRaw`
         INSERT INTO "Ride" (
           id,
@@ -125,8 +129,8 @@ export class RideService {
             4326
           )::geography,
           'CONFIRMED'::"RideStatus",
-          ${startedAt ? new Date(startedAt) : new Date()},
-          ${endedAt ? new Date(endedAt) : new Date()}
+          ${new Date(startedAt)},
+          ${new Date(endedAt)}
         )
         ON CONFLICT (id) DO UPDATE
         SET
@@ -143,11 +147,9 @@ export class RideService {
        * 2. Streets & StreetReports
        * -------------------------------- */
       for (const street of streets) {
-        if (!street?.externalId) continue;
-
         const geometry = {
           type: 'LineString',
-          coordinates: (street.positions ?? []).map((p: any) => p.coord),
+          coordinates: street.positions.map((p: any) => p.coord),
         };
   
         // 2.1 查是否存在同名 + 1km 内的 Street
@@ -206,13 +208,6 @@ export class RideService {
         // 2.3 创建 StreetReport（幂等）
         const existingReport = await tx.streetReport.findFirst({
           where: {
-            user_ride_street_unique: {
-              userId,
-              rideId,
-              streetId: streetRecord.id,
-            },
-          },
-          create: {
             userId,
             rideId,
             streetId,
@@ -283,7 +278,6 @@ export class RideService {
       where: { id: rideId },
       include: {
         reports: true,
-        issues: true,
       },
     });
 

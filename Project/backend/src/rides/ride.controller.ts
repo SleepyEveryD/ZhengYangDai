@@ -31,7 +31,7 @@ export class RideController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // ✅ 必须是 DRAFT
     if (body.status !== 'DRAFT') {
@@ -68,11 +68,13 @@ export class RideController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // ✅ 必须是 CONFIRMED
     if (body.status !== 'CONFIRMED') {
-      throw new BadRequestException('Ride must be in CONFIRMED status to confirm');
+      throw new BadRequestException(
+        'Ride must be in CONFIRMED status to confirm',
+      );
     }
 
     // ✅ 防止前端传错 rideId
@@ -95,7 +97,7 @@ export class RideController {
     @Query("page") page = "1",
     @Query("limit") limit = "20"
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     return this.rideService.getUserRides({
       userId,
@@ -110,7 +112,7 @@ export class RideController {
     @Req() req: any,
     @Param("rideId") rideId: string
   ) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
     return this.rideService.getRideDetail(userId, rideId);
   }
 
