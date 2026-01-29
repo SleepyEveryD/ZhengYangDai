@@ -7,7 +7,7 @@ type Issue = {
   type: string;
   severity?: string;
   location: [number, number];
-  description?: string;
+  notes?: string;
 };
 
 type IssueListProps = {
@@ -55,11 +55,11 @@ export default function IssueList({
                 {issue.location[1].toFixed(5)}
               </p>
 
-              {/* description */}
-              {issue.description !== undefined && (
+              {/* notes */}
+              {issue.notes !== undefined && (
                 <p className="text-gray-500 text-sm leading-snug">
-                  {issue.description.trim()
-                    ? issue.description
+                  {issue.notes.trim()
+                    ? issue.notes
                     : ""}
                 </p>
               )}
