@@ -7,7 +7,7 @@ import type { User } from "../types/user";
 
 type PathPlanningProps = { user?: User };
 
-export default function PathPlanning({ user }: PathPlanningProps) {
+export default function PathPlanning({ }: PathPlanningProps) {
   const navigate = useNavigate();
 
   const [origin, setOrigin] = useState("");              // 文本（可选）

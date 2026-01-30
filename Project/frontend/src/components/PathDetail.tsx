@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 export default function PathDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  useParams<{ id: string; }>();
   const location = useLocation();
   const [streetReports, setStreetReports] = useState<any[]>([]);
 

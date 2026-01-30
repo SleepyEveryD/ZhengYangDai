@@ -3,19 +3,15 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   StopCircleIcon,
-  AlertCircleIcon,
-  CheckCircleIcon,
-  XIcon,
 } from "lucide-react";
 import MapView from "./MapView";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { toast } from "sonner";
 import type { Issue } from "../types/issue";
 import { getCurrentRide, saveRideLocal } from "../services/rideStorage";
 import { rideRouteService } from "../services/reportService";
 import type { Ride } from "../types/ride";
 import type { RideStreet } from "../types/rideStreet";
-import type { GeoJSON } from "geojson";
 
 
 
@@ -277,7 +273,7 @@ export default function RideRecording() {
   const currentLocation: [number, number] | undefined =
   path.length > 0 ? path[path.length - 1] : undefined;
 
-  const [detectedIssues, setDetectedIssues] = useState<Issue[]>([]);
+  const [detectedIssues] = useState<Issue[]>([]);
   const [activeNavRoute, setActiveNavRoute] =
   useState<[number, number][]>([]);
 
