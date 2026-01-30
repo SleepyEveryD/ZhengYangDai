@@ -191,7 +191,7 @@ export default function RideDetail() {
         city: s.city,
         country: s.country,
         positions: s.positions,
-        condition: segments[i]?.roadCondition ?? "GOOD",
+        condition: segments[i]?.condition ?? "GOOD",
       })),
 
       avgSpeed: ride.avgSpeed,
@@ -228,7 +228,7 @@ export default function RideDetail() {
       payload.streets.map((s, index) => ({
         id: `confirmed-${index}`,
         name: s.name,
-        roadCondition: s.condition,
+        condition: s.condition,
         notes: null,
         startPoint: 0,
         endPoint: 0,
