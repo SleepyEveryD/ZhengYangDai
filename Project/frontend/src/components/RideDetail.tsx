@@ -189,6 +189,7 @@ export default function RideDetail() {
         country: s.country,
         positions: s.positions,
         condition: segments[i]?.condition ?? "GOOD",
+         comment: segments[i]?.notes ?? null
       })),
 
       avgSpeed: ride.avgSpeed,
