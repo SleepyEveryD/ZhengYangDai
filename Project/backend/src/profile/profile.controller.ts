@@ -11,7 +11,8 @@ export class ProfileController {
   @UseGuards(SupabaseAuthGuard)
   @Get()
   async getProfile(@Req() req: any): Promise<ProfileResponseDto> {
-    const userId = req.user.userId
+    const userId = req.user.id
+    
     return this.profileService.getProfileSummary(userId)
   }
 }

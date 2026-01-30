@@ -37,7 +37,7 @@ export default function Profile() {
         if (!mounted) return;
 
         setTotalRides(Number(data.ridesCount ?? 0));
-        setTotalReports(Number(data.reportsCount ?? 0));
+        setTotalReports(Number(data.confirmedRidesCount ?? 0));
         setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
       })
       .catch((err) => {
@@ -110,9 +110,13 @@ export default function Profile() {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <p className="text-white mb-1 font-semibold">
-                  {totalDistanceKm!.toFixed(1)}
+                  {totalDistanceKm < 1
+                    ? Math.round(totalDistanceKm * 1000)
+                    : totalDistanceKm.toFixed(1)}
                 </p>
-                <p className="text-white/80 text-sm">kilometers</p>
+                <p className="text-white/80 text-sm">
+                  {totalDistanceKm < 1 ? "meters" : "kilometers"}
+                </p>
               </div>
 
               <div className="text-center">
@@ -136,25 +140,7 @@ export default function Profile() {
           {/* Quick Stats */}
           {!isLoading && (
             <div className="grid grid-cols-2 gap-3">
-              <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardContent className="p-4 text-center">
-                  <BikeIcon className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-gray-900 mb-1 font-semibold">
-                    {totalRides}
-                  </p>
-                  <p className="text-gray-600 text-sm">Total Rides</p>
-                </CardContent>
-              </Card>
-
-              <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardContent className="p-4 text-center">
-                  <MapPinIcon className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-gray-900 mb-1 font-semibold">
-                    {totalDistanceKm!.toFixed(1)} km
-                  </p>
-                  <p className="text-gray-600 text-sm">Total Distance</p>
-                </CardContent>
-              </Card>
+            
             </div>
           )}
 
@@ -203,25 +189,7 @@ export default function Profile() {
                 </CardContent>
               </Card>
 
-              <Card
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate("/reports")}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <AlertCircleIcon className="w-6 h-6 text-orange-600" />
-                      <div>
-                        <p className="text-gray-900 font-medium">My Reports</p>
-                        <p className="text-gray-500 text-sm">
-                          {totalReports} records
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowLeftIcon className="w-5 h-5 text-gray-400 rotate-180" />
-                  </div>
-                </CardContent>
-              </Card>
+        
             </div>
           )}
 

@@ -7,12 +7,12 @@ export class ProfileService {
 
  async getProfileSummary(userId: string) {
   
-  const [ridesCount, reportsCount, distanceRow] = await Promise.all([
+  const [ridesCount, confirmedRidesCount, distanceRow] = await Promise.all([
+    this.prisma.ride.count({
+      where: { userId },
+    }),
     this.prisma.ride.count({
       where: { userId, status: "CONFIRMED" },
-    }),
-    this.prisma.streetReport.count({
-      where: { userId },
     }),
     this.prisma.$queryRaw<{ total_km: number }[]>`
       SELECT
@@ -20,15 +20,19 @@ export class ProfileService {
       FROM "Ride"
       WHERE
         "userId" = ${userId}
-        AND status = 'CONFIRMED'
+        
     `,
   ]);
+  //console.log("📏 ridesCount", ridesCount);
+
+  //console.log("📏 confirmedRidesCount", confirmedRidesCount);
+
   console.log("📏 totalDistanceKm", Number(distanceRow[0]?.total_km ?? 0));
 
 
   return {
     ridesCount,
-    reportsCount,
+    confirmedRidesCount,
     totalDistanceKm: Number(distanceRow[0]?.total_km ?? 0),
   };
 }

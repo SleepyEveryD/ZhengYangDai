@@ -93,35 +93,17 @@ export class RideService {
    *  - StreetIssue: RAW SQL with IssueType mapping
    * ====================================================== */
   async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
-    const { startedAt, endedAt, routeGeoJson, streets, issues, roadConditionSegments } =
-      payload ?? {};
-
+    console.log("payload ", payload);
+  
+    const { startedAt, endedAt, routeGeoJson, streets, issues } = payload ?? {};
+  
     if (!routeGeoJson) {
-      throw new BadRequestException('routeGeoJson is required');
+      throw new BadRequestException("routeGeoJson is required");
     }
     if (!Array.isArray(streets) || streets.length === 0) {
-      throw new BadRequestException('streets must be a non-empty array');
+      throw new BadRequestException("streets must be a non-empty array");
     }
-
-    // segment map: externalId -> { roadCondition, notes }
-    const segMap = new Map<
-      string,
-      { roadCondition: RoadCondition; notes: string | null }
-    >();
-
-    for (const seg of roadConditionSegments ?? []) {
-      const ext = seg?.streetExternalId;
-      if (!ext) continue;
-
-      const cond = (seg?.condition ?? seg?.roadCondition ?? 'GOOD') as RoadCondition;
-      const notes =
-        seg?.notes && String(seg.notes).trim().length > 0
-          ? String(seg.notes).trim()
-          : null;
-
-      segMap.set(ext, { roadCondition: cond, notes });
-    }
-
+  
     return this.prisma.$transaction(async (tx) => {
       /* --------------------------------
        * 0) Guard: cannot reconfirm
@@ -130,16 +112,16 @@ export class RideService {
         where: { id: rideId },
         select: { status: true },
       });
-      if (existing?.status === 'CONFIRMED') {
-        throw new ConflictException('Ride already confirmed');
+      if (existing?.status === "CONFIRMED") {
+        throw new ConflictException("Ride already confirmed");
       }
-
+  
       /* --------------------------------
        * 1) Insert/Update Ride (RAW SQL)
        * -------------------------------- */
       const sAt = startedAt ? new Date(startedAt) : new Date();
       const eAt = endedAt ? new Date(endedAt) : new Date();
-
+  
       await tx.$executeRaw`
         INSERT INTO "Ride" (
           id,
@@ -171,36 +153,33 @@ export class RideService {
           status          = 'CONFIRMED'::"RideStatus"
         WHERE "Ride".status = 'DRAFT'::"RideStatus"
       `;
-
+  
       /* --------------------------------
        * 2) Streets & StreetReports
-       *    - 先 1km match（同名/同城/同国 + ST_DWithin）
-       *    - 找不到再 externalId upsert（但不覆盖已有 geometry）
        * -------------------------------- */
       for (const street of streets) {
         if (!street) continue;
-
+  
         const externalId: string | undefined = street.externalId;
         const name: string | null = street.name ?? null;
         const city: string | null = street.city ?? null;
         const country: string | null = street.country ?? null;
-
+  
         const coords = (street.positions ?? [])
           .map((p: any) => p?.coord)
           .filter(Boolean);
-
-        if (!Array.isArray(coords) || coords.length < 2) {
-          // 没 geometry 就跳过
+  
+        // ✅ 你的前端 positions 可能只有 1 个点；<2 会把它全跳过
+        if (!Array.isArray(coords) || coords.length < 1) {
           continue;
         }
-
+  
         const geometry = {
-          type: 'LineString',
+          type: "LineString",
           coordinates: coords,
         };
-
+  
         // 2.1 先按 “同名/同城/同国 + 1km 内” 找现有 Street
-        //     ✅ 这样就实现：externalId 不同但距离近 -> 认为同路
         const near = await tx.$queryRaw<{ id: string }[]>`
           SELECT id
           FROM "Street"
@@ -219,25 +198,24 @@ export class RideService {
             )
           LIMIT 1
         `;
-
+  
         let streetId: string;
-
+  
         if (near.length > 0) {
           streetId = near[0].id;
-          // ✅ 这里不写 externalId（因为 schema 外键不允许一条路多个 externalId）
         } else {
           // 2.2 找不到 nearby -> 用 externalId upsert
-          // externalId 为空的话，只能创建一个新的（但 externalId 是 @unique 必填，通常不会为空）
           if (!externalId) {
-            // 兜底：给一个随机 externalId 避免 SQL 失败（不推荐，最好前端保证有 externalId）
-            // 你也可以选择 throw
-            // throw new BadRequestException('street.externalId is required');
-            const fallback = `fallback-${Date.now()}-${Math.random()}`;
-            street.externalId = fallback;
+            // ✅ 推荐：直接拒绝，避免污染 Street 表
+            throw new BadRequestException("street.externalId is required");
+  
+            // 如果你硬要 fallback，用这段（不推荐）：
+            // const fallback = `fallback-${Date.now()}-${Math.random()}`;
+            // street.externalId = fallback;
           }
-
+  
           const ext = street.externalId;
-
+  
           const [streetRow] = await tx.$queryRaw<{ id: string }[]>`
             INSERT INTO "Street" (
               id,
@@ -265,55 +243,51 @@ export class RideService {
               name = EXCLUDED.name,
               city = EXCLUDED.city,
               country = EXCLUDED.country,
-              -- ✅ 避免 externalId 已存在但被新 geometry “污染”
               "geometryJson" = COALESCE("Street"."geometryJson", EXCLUDED."geometryJson"),
               geometry       = COALESCE("Street".geometry, EXCLUDED.geometry)
             RETURNING id
           `;
           streetId = streetRow.id;
         }
-
-        // 2.3 streetReport：用 segmentMap（按 externalId）拿 roadCondition/notes
-        // 如果 1km 匹配走了 “near”，externalId 可能不同，此时 segMap.get 可能拿不到 -> 默认 GOOD
-        const seg = externalId ? segMap.get(externalId) : undefined;
-        const roadCondition: RoadCondition = seg?.roadCondition ?? 'GOOD';
-        const notes: string | null = seg?.notes ?? null;
-
-        // ✅ 正确 Prisma 复合唯一键：userId_rideId_streetId（不是 constraint name）
+  
+        // 2.3 StreetReport：直接用前端 street.condition
+        const roadCondition: RoadCondition =
+          (street.condition as RoadCondition) ?? "GOOD";
+  
         const existingReport = await tx.streetReport.findFirst({
-  where: {
-    userId,
-    rideId,
-    streetId,
-  },
-  select: { id: true },
-});
-
-if (existingReport) {
-  await tx.streetReport.update({
-    where: { id: existingReport.id },
-    data: { roadCondition, notes },
-  });
-} else {
-  await tx.streetReport.create({
-    data: { userId, rideId, streetId, roadCondition, notes },
-  });
-}
-
+          where: { userId, rideId, streetId },
+          select: { id: true },
+        });
+  
+        if (existingReport) {
+          await tx.streetReport.update({
+            where: { id: existingReport.id },
+            data: { roadCondition },
+          });
+        } else {
+          console.log(" streetReport creation: ", userId);
+          console.log(" streetReport creation: ", rideId);
+          console.log(" streetReport creation: ", streetId);
+          console.log(" streetReport creation: ", roadCondition);
+          await tx.streetReport.create({
+            data: { userId, rideId, streetId, roadCondition },
+            
+          });
+        }
+  
         // ✅ upsert 结束后，DB trigger 会自动刷新 StreetAggregation
       }
-
+  
       /* --------------------------------
        * 3) StreetIssues (RAW SQL + mapping)
        * -------------------------------- */
       for (const issue of issues ?? []) {
         const point = toGeoJSONPointFromFrontend(issue.location);
         if (!point) continue;
-
+  
         const geojsonStr = JSON.stringify(point);
-
         const mapped = this.mapFrontendIssueType(issue.type as FrontIssueType);
-
+  
         await tx.$executeRaw`
           INSERT INTO "StreetIssue" (
             id,
@@ -338,10 +312,11 @@ if (existingReport) {
           )
         `;
       }
-
+  
       return { success: true, rideId };
     });
   }
+  
 
   /* ======================================================
    *  Read APIs

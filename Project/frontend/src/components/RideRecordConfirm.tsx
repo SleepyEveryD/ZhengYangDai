@@ -115,11 +115,24 @@ export default function RideRecordConfirm() {
       setShowReportDialog(true);
       return;
     }
+    
+    const streetsWithCondition = (ride.streets ?? []).map((street) => {
+      const segment = roadConditionSegments?.find(
+        (seg) => seg?.name === street.name
+      );
+    
+      return {
+        ...street,
+        condition: segment?.condition ?? 'GOOD',
+      };
+    });
+    console.log("streets with condition", streetsWithCondition);
+    
 
     const finalRide = {
       ...ride,
       issues,
-      roadConditionSegments,
+      streets: streetsWithCondition,
       status,
       uploadStatus: "pending",
       confirmedAt: new Date().toISOString(),

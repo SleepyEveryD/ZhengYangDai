@@ -1,5 +1,5 @@
 export class ProfileResponseDto {
     ridesCount: number
-    reportsCount: number
+    confirmedRidesCount: number
   }
   
