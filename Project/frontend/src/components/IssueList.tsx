@@ -5,9 +5,8 @@ import { AlertCircleIcon } from "lucide-react";
 type Issue = {
   id: string;
   type: string;
-  severity?: string;
   location: [number, number];
-  description?: string;
+  notes?: string;
 };
 
 type IssueListProps = {
@@ -36,17 +35,13 @@ export default function IssueList({
         {issues.map((issue) => (
           <Card key={issue.id}>
             <CardContent className="p-4 space-y-2">
-              {/* type + severity */}
+              {/* type */}
               <div className="flex justify-between items-center">
                 <span className="text-gray-900 font-medium">
                   {getIssueTypeText(issue.type)}
                 </span>
 
-                {issue.severity && (
-                  <Badge className={getSeverityColor(issue.severity)}>
-                    {getSeverityText(issue.severity)}
-                  </Badge>
-                )}
+            
               </div>
 
               {/* location */}
@@ -55,11 +50,11 @@ export default function IssueList({
                 {issue.location[1].toFixed(5)}
               </p>
 
-              {/* description */}
-              {issue.description !== undefined && (
+              {/* notes */}
+              {issue.notes !== undefined && (
                 <p className="text-gray-500 text-sm leading-snug">
-                  {issue.description.trim()
-                    ? issue.description
+                  {issue.notes.trim()
+                    ? issue.notes
                     : ""}
                 </p>
               )}
@@ -73,41 +68,25 @@ export default function IssueList({
 
 /* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
 
-function getIssueTypeText(type: string) {
-  switch (type) {
-    case "pothole":
-      return "Pothole";
-    case "crack":
-      return "Crack";
-    case "obstacle":
-      return "Obstacle";
+function getIssueTypeText(type: unknown) {
+  const value = String(type).toLowerCase();
+
+  switch (value) {
+    case 'pothole':
+      return 'Pothole';
+    case 'bump':
+      return 'Bump';
+    case 'gravel':
+      return 'Gravel';
+    case 'construction':
+      return 'Construction';
+    case 'other':
+      return 'Other';
     default:
-      return "Other";
+      return 'Other';
   }
 }
 
-function getSeverityColor(severity: string) {
-  switch (severity) {
-    case "high":
-      return "bg-red-100 text-red-800";
-    case "medium":
-      return "bg-orange-100 text-orange-800";
-    case "low":
-      return "bg-yellow-100 text-yellow-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-}
 
-function getSeverityText(severity: string) {
-  switch (severity) {
-    case "high":
-      return "Severe";
-    case "medium":
-      return "Moderate";
-    case "low":
-      return "Minor";
-    default:
-      return "Unknown";
-  }
-}
+
+

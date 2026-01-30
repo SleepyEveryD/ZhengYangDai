@@ -15,7 +15,6 @@ export type Issue = {
     lat: number;
     lng: number;
   };
-
   notes?: string;
   createdAt: Date;
 };
