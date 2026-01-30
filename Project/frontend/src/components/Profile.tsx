@@ -19,8 +19,11 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [totalRides, setTotalRides] = useState(0);
-  const [totalReports, setTotalReports] = useState(0);
+  // ✅ 不再用 0 作为初始值
+  const [totalRides, setTotalRides] = useState<number | null>(null);
+  const [totalReports, setTotalReports] = useState<number | null>(null);
+  const [totalDistanceKm, setTotalDistanceKm] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -35,6 +38,7 @@ export default function Profile() {
 
         setTotalRides(Number(data.ridesCount ?? 0));
         setTotalReports(Number(data.reportsCount ?? 0));
+        setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
       })
       .catch((err) => {
         console.error("[PROFILE_FETCH_ERROR]", err);
@@ -48,12 +52,7 @@ export default function Profile() {
     };
   }, []);
 
-  // 保持原逻辑：distance 目前只是占位
-  const totalDistance = Number(user.totalDistance ?? 0);
-
-  const handleLogout = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleLogout = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
 
