@@ -61,6 +61,8 @@ export default function Profile() {
       console.error(error);
       return;
     }
+    localStorage.clear();
+    sessionStorage.clear();
 
     navigate("/login", { replace: true });
   };

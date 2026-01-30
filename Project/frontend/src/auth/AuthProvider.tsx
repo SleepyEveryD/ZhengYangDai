@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(null);
         }
+        console.log('session:', session)
       }
     );
 
