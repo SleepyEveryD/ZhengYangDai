@@ -24,4 +24,5 @@ export type Route = {
   elevation: number[];
   segments: RouteSegment[];
   comments: RouteComment[];
+  streetIds: string[];
 };

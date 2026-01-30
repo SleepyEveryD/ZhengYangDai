@@ -24,7 +24,7 @@ import type { GeoJSON } from "geojson";
  * - "real": 用真实 GPS 轨迹（watchPosition）
  * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
  */
-const TRACK_MODE: "real" | "demo" = "real";
+const TRACK_MODE: "real" | "demo" = "demo";
 
 /** Demo 速度（m/s）：4~7 比较像骑行 */
 const DEMO_SPEED_MPS = 5.5;
@@ -127,6 +127,99 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const metersToLat = (m: number) => m / 111111;
 const metersToLng = (m: number, lat: number) =>
   m / (111111 * Math.cos((lat * Math.PI) / 180));
+type Segment = {
+  a: [number, number];
+  b: [number, number];
+  index: number; // a 在 route 里的 index
+};
+
+const buildSegments = (route: [number, number][]): Segment[] => {
+  const segments: Segment[] = [];
+
+  for (let i = 0; i < route.length - 1; i++) {
+    segments.push({
+      a: route[i],
+      b: route[i + 1],
+      index: i,
+    });
+  }
+
+  return segments;
+};
+const projectPointToSegment = (
+  p: [number, number],
+  a: [number, number],
+  b: [number, number]
+): {
+  projected: [number, number];
+  t: number; // 0~1，表示在线段 a→b 上的位置
+  dist: number; // 投影点到 p 的距离（米）
+} => {
+  // 向量 AP、AB
+  const ax = a[1];
+  const ay = a[0];
+  const bx = b[1];
+  const by = b[0];
+  const px = p[1];
+  const py = p[0];
+
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+
+  const abLen2 = abx * abx + aby * aby;
+
+  let t = abLen2 === 0 ? 0 : (apx * abx + apy * aby) / abLen2;
+  t = Math.max(0, Math.min(1, t)); // clamp 到线段内
+
+  const projX = ax + abx * t;
+  const projY = ay + aby * t;
+
+  const projected: [number, number] = [projY, projX];
+
+  const dist = haversineMeters(p, projected);
+
+  return { projected, t, dist };
+};
+const findClosestSegmentOnRoute = (
+  route: [number, number][],
+  current: [number, number]
+): {
+  segmentIndex: number;
+  projected: [number, number];
+} | null => {
+  if (route.length < 2) return null;
+
+  const segments = buildSegments(route);
+
+  let minDist = Infinity;
+  let best: {
+    segmentIndex: number;
+    projected: [number, number];
+  } | null = null;
+
+  for (const seg of segments) {
+    const { projected, dist } = projectPointToSegment(
+      current,
+      seg.a,
+      seg.b
+    );
+
+    if (dist < minDist) {
+      minDist = dist;
+      best = {
+        segmentIndex: seg.index,
+        projected,
+      };
+    }
+  }
+
+  return best;
+};
+
+
+
 
 // path([lat,lng]) -> GeoJSON([lng,lat])
 const pathToGeoJson = (path: [number, number][]): GeoJSON.LineString => ({
@@ -526,18 +619,35 @@ useEffect(() => {
     navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
 const navigationPaths = useMemo(() => {
-  if (!activeNavRoute.length) return [];
+  if (!activeNavRoute.length || !currentLocation) return [];
 
- const snappedLocation =
-  TRACK_MODE === "real" && currentLocation
-    ? snapToRoute(activeNavRoute, currentLocation)
-    : currentLocation;
+  const closest = findClosestSegmentOnRoute(
+    activeNavRoute,
+    currentLocation
+  );
 
-const { passed, remaining } = splitRouteByProgress(
-  activeNavRoute,
-  snappedLocation
-);
+  if (!closest) {
+    return [
+      {
+        id: "route-all",
+        path: activeNavRoute,
+        color: "#2563eb",
+        weight: 6,
+      },
+    ];
+  }
 
+  const { segmentIndex, projected } = closest;
+
+  const passed = [
+    ...activeNavRoute.slice(0, segmentIndex + 1),
+    projected,
+  ];
+
+  const remaining = [
+    projected,
+    ...activeNavRoute.slice(segmentIndex + 1),
+  ];
 
   return [
     {
@@ -554,9 +664,6 @@ const { passed, remaining } = splitRouteByProgress(
     },
   ];
 }, [activeNavRoute, currentLocation]);
-
-
-
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
