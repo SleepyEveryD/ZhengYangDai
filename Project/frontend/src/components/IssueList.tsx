@@ -1,5 +1,4 @@
 import { Card, CardContent } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { AlertCircleIcon } from "lucide-react";
 
 type Issue = {

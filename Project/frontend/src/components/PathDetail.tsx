@@ -20,7 +20,7 @@ import { saveRideLocal } from '../services/rideStorage';
 export default function PathDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  useParams<{ id: string; }>();
   const location = useLocation();
 
   const route = location.state?.route as Route | undefined;
