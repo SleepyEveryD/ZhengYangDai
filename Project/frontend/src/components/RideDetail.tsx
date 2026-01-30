@@ -8,7 +8,6 @@ import {
   RulerIcon,
   TrendingUpIcon,
   ZapIcon,
-  AlertCircleIcon,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -25,13 +24,10 @@ import type { RoadConditionSegment } from "./RideReportEditorDialog";
 import { rideRouteService } from "../services/reportService";
 import type { GeoJSON } from "geojson";
 import { saveRideLocal } from "../services/rideStorage";
-import { RIDE_QUEUE_UPDATED } from "../constants/events.ts";
+import { RIDE_QUEUE_UPDATED } from "../constants/events";
 import IssueList from "./IssueList";
 import RoadConditionList from "./RoadConditionList";
 import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
-
-
-
 
 /* ===================================================== */
 
@@ -42,14 +38,12 @@ export default function RideDetail() {
   const [ride, setRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔑 编辑态
+  // 编辑态
   const [showEditor, setShowEditor] = useState(false);
   const [issues, setIssues] = useState<Ride["issues"]>([]);
   const [segments, setSegments] = useState<RoadConditionSegment[]>([]);
   const [resolvedStreets, setResolvedStreets] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [reportTab, setReportTab] = useState<"issues" | "conditions">("issues");
-
 
   /* ---------------- utils ---------------- */
 
@@ -78,6 +72,39 @@ export default function RideDetail() {
         setRide(adapted);
         setIssues(adapted.issues);
 
+        /**
+         * ============================
+         * ✅ CONFIRMED：只信 API
+         * ============================
+         */
+        if (adapted.status === "CONFIRMED") {
+          setResolvedStreets([]);
+
+          // 👉 不用 buildSegmentsFromStreets（没有 positions）
+          setSegments(
+            adapted.streets.map((s, index) => ({
+              id: `confirmed-${index}`,
+              name: s.name,
+              condition: s.condition,
+              notes: null,
+              startPoint: 0,
+              endPoint: 0,
+            }
+            ))
+          );
+          console.log(" this ride is confirmed", adapted.streets);
+          
+
+          
+
+          return;
+        }
+
+        /**
+         * ============================
+         * ✏️ DRAFT：前端推导
+         * ============================
+         */
         let streets: any[] = [];
 
         if (adapted.path?.length >= 2) {
@@ -94,13 +121,14 @@ export default function RideDetail() {
 
         setResolvedStreets(streets);
 
+        // ⚠️ 只在有 positions 时才 build
         setSegments(
-          adapted.roadConditionSegments?.length
-            ? adapted.roadConditionSegments
-            : buildSegmentsFromStreets({
+          streets.length > 0
+            ? buildSegmentsFromStreets({
                 ...adapted,
                 streets,
               })
+            : []
         );
       } catch (err) {
         console.error("[RIDE_DETAIL_FETCH_ERROR]", err);
@@ -120,80 +148,96 @@ export default function RideDetail() {
     setIsEditing(false);
     setShowEditor(false);
 
-    if (ride) {
-      setIssues(ride.issues);
-      setSegments(ride.roadConditionSegments ?? []);
+    if (!ride) return;
+
+    setIssues(ride.issues);
+
+    if (ride.status === "CONFIRMED") {
+      setSegments(
+        ride.streets.map((s, index) => ({
+          id: `confirmed-${index}`,
+          name: s.name,
+          roadCondition: s.condition,
+          notes: null,
+          startPoint: 0,
+          endPoint: 0,
+        }))
+      );
     }
   };
 
   /**
-   * ⭐ 核心：构造 ConfirmPayload 并保存
+   * ⭐ Confirm（只可能是 DRAFT）
    */
-   const handleConfirmEdit = () => {
+  const handleConfirmEdit = () => {
     if (!ride) return;
-  
+
     const confirmedAt = new Date().toISOString();
-  
+
     const routeGeoJson = {
       type: "LineString",
       coordinates: ride.path.map(([lat, lng]) => [lng, lat]),
     };
-  
+
     const payload = {
       id: ride.id,
-  
       startedAt: ride.startedAt,
       endedAt: ride.endedAt,
-  
       routeGeoJson,
-  
-      streets: resolvedStreets.map((s) => ({
+
+      streets: resolvedStreets.map((s, i) => ({
         externalId: s.externalId,
         name: s.name,
         city: s.city,
         country: s.country,
         positions: s.positions,
+        condition: segments[i]?.roadCondition ?? "GOOD",
       })),
-  
+
       avgSpeed: ride.avgSpeed,
       distance: ride.distance,
       duration: ride.duration,
       maxSpeed: ride.maxSpeed,
-  
+
       path: ride.path,
-  
+
       issues: issues.map((i) => ({
         type: i.type,
         location: i.location,
         description: i.description ?? "",
       })),
-  
-      roadConditionSegments: segments,
-  
+
       status: "CONFIRMED",
       uploadStatus: "pending",
       confirmedAt,
       date: ride.endedAt,
     };
-  
-    // 1️⃣ 入队（写 localStorage）
+
     saveRideLocal(payload);
-  
-    // 2️⃣ 发事件（通知 uploader）
     window.dispatchEvent(new Event(RIDE_QUEUE_UPDATED));
-  
-    // 3️⃣ UI 更新
+
+    // UI 同步
     setRide({
       ...ride,
       status: "CONFIRMED",
       issues,
-      roadConditionSegments: segments,
+      streets: payload.streets,
     });
-  
+
+    setSegments(
+      payload.streets.map((s, index) => ({
+        id: `confirmed-${index}`,
+        name: s.name,
+        roadCondition: s.condition,
+        notes: null,
+        startPoint: 0,
+        endPoint: 0,
+      }))
+    );
+
     setIsEditing(false);
     setShowEditor(false);
   };
-  
 
   /* ---------------- utils ---------------- */
 
@@ -229,9 +273,8 @@ export default function RideDetail() {
   }
 
   if (!ride) {
-    return (
-      navigate("/rides")
-    );
+    navigate("/rides");
+    return null;
   }
 
   return (
@@ -295,29 +338,22 @@ export default function RideDetail() {
 
           <Card>
             <CardContent className="p-4 grid grid-cols-2 gap-4">
-              <Stat icon={<RulerIcon />} label="Distance" value={`${ride.distance} km`} />
-              <Stat icon={<ClockIcon />} label="Duration" value={formatTime(ride.duration)} />
-              <Stat icon={<TrendingUpIcon />} label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
-              <Stat icon={<ZapIcon />} label="Max Speed" value={`${ride.maxSpeed} km/h`} />
+              <Stat label="Distance" value={`${ride.distance} km`} />
+              <Stat label="Duration" value={formatTime(ride.duration)} />
+              <Stat label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
+              <Stat label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
+
           {isEditing && (
             <RoadConditionRequiredCard
               hasSegments={segments.length > 0}
-              onOpenEditor={() => {
-                setReportTab("conditions");
-                setShowEditor(true);
-              }}
+              onOpenEditor={() => setShowEditor(true)}
             />
           )}
 
-
-
           <IssueList issues={issues} />
           <RoadConditionList segments={segments} />
-
-
-
         </div>
       </div>
 
@@ -342,23 +378,16 @@ export default function RideDetail() {
 /* ---------------- small component ---------------- */
 
 function Stat({
-  icon,
   label,
   value,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-        {icon}
-      </div>
-      <div>
-        <p className="text-gray-600">{label}</p>
-        <p className="text-gray-900">{value}</p>
-      </div>
+    <div>
+      <p className="text-gray-600">{label}</p>
+      <p className="text-gray-900">{value}</p>
     </div>
   );
 }
