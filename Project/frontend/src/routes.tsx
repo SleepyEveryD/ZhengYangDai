@@ -37,6 +37,8 @@ export function AppRoutes() {
       <Route path="/rides/:id" element={<RideDetail />} />
 
       <Route path="/reports" element={<ReportHistory />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+
     </Routes>
   );
 }

@@ -64,6 +64,8 @@ type FilterType = "all" | "pending" | "confirmed" | "fixed";
 export default function ReportHistory() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
+
 
   const getIssueTypeText = (type: string) => {
     switch (type) {
