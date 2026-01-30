@@ -94,8 +94,10 @@ export class RideService {
    * ====================================================== */
   async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     console.log("payload ", payload);
+    console.log("start transaction");
   
-    const { startedAt, endedAt, routeGeoJson, streets, issues } = payload ?? {};
+    const { startedAt, endedAt, routeGeoJson, streets, issues, weather} = payload ?? {};
+    console.log("weather ", weather);
   
     if (!routeGeoJson) {
       throw new BadRequestException("routeGeoJson is required");
@@ -105,6 +107,8 @@ export class RideService {
     }
   
     return this.prisma.$transaction(async (tx) => {
+      console.log("start transaction");
+      
       /* --------------------------------
        * 0) Guard: cannot reconfirm
        * -------------------------------- */
@@ -265,10 +269,10 @@ export class RideService {
             data: { roadCondition },
           });
         } else {
-          console.log(" streetReport creation: ", userId);
-          console.log(" streetReport creation: ", rideId);
-          console.log(" streetReport creation: ", streetId);
-          console.log(" streetReport creation: ", roadCondition);
+          //console.log(" streetReport creation: ", userId);
+          //console.log(" streetReport creation: ", rideId);
+          //console.log(" streetReport creation: ", streetId);
+          //console.log(" streetReport creation: ", roadCondition);
           await tx.streetReport.create({
             data: { userId, rideId, streetId, roadCondition },
             
@@ -312,7 +316,29 @@ export class RideService {
           )
         `;
       }
-  
+      /* --------------------------------
+       * 4)  RideWeather (TEMP)
+       * -------------------------------- */
+   
+      if (weather) {
+        await tx.rideWeather.upsert({
+          where: { rideId },
+          create: {
+            rideId,
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+          update: {
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+        });
+      }
+
       return { success: true, rideId };
     });
   }

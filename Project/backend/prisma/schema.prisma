@@ -41,6 +41,8 @@ model Ride {
   createdAt      DateTime    @default(now())
   issues         StreetIssue[]
   reports        StreetReport[]
+  weather        RideWeather?
+
   
   @@index([userId])
 }
@@ -104,3 +106,19 @@ model StreetAggregation {
   lastUpdatedAt  DateTime      @updatedAt
   street         Street        @relation(fields: [streetId], references: [id], onDelete: Cascade)
 }
+model RideWeather {
+  id        String   @id @default(uuid())
+  rideId    String   @unique
+
+  temp      Int?
+  condition String?
+  wind      String?
+
+  raw       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ride      Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
+}
+
