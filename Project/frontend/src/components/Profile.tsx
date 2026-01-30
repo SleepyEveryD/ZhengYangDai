@@ -21,6 +21,7 @@ export default function Profile() {
 
   const [totalRides, setTotalRides] = useState(0);
   const [totalReports, setTotalReports] = useState(0);
+  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -32,6 +33,7 @@ export default function Profile() {
         if (!mounted) return;
         setTotalRides(Number(data.ridesCount ?? 0));
         setTotalReports(Number(data.reportsCount ?? 0));
+        setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
       })
       .catch((err) => {
         console.error("[PROFILE_FETCH_ERROR]", err);
@@ -42,8 +44,8 @@ export default function Profile() {
     };
   }, []);
 
-  // 保持原逻辑：distance 目前只是占位
-  const totalDistance = Number(user.totalDistance ?? 0);
+ const totalDistance = totalDistanceKm;
+
 
   const handleLogout = async (
     e: React.MouseEvent<HTMLButtonElement>
