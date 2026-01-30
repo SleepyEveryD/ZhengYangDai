@@ -1,4 +1,4 @@
-export type RouteCondition = 'excellent' | 'good' | 'fair' | 'poor';
+export type RouteCondition = 'excellent' | 'good' | 'fair' | 'needRepair';
 
 export type RouteSegment = {
   condition: RouteCondition;

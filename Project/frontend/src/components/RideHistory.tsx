@@ -14,11 +14,14 @@ import { Badge } from "./ui/badge";
 import type { Ride } from "../types/ride";
 import { getMyRides } from "../hooks/rides.api";
 import { adaptRideFromApi } from "../adapters/ride.adapter";
+import { getProfileSummary } from "../hooks/profile.api";
+
 
 export default function RideHistory() {
   const navigate = useNavigate();
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -62,8 +65,25 @@ export default function RideHistory() {
       day: "numeric",
     });
   };
+  useEffect(() => {
+  let mounted = true;
 
-  const totalDistance = rides.reduce((s, r) => s + r.distance, 0);
+  getProfileSummary()
+    .then((data) => {
+      if (!mounted) return;
+      setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
+    })
+    .catch((err) => {
+      console.error("[RIDES_PROFILE_FETCH_ERROR]", err);
+    });
+
+  return () => {
+    mounted = false;
+  };
+}, []);
+
+
+  const totalDistance = totalDistanceKm;
   const totalTime = rides.reduce((s, r) => s + r.duration, 0);
   const totalIssues = rides.reduce((s, r) => s + r.issues.length, 0);
 
