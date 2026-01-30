@@ -17,6 +17,9 @@ export interface RideDetailApiResponse {
     routeGeoJson?: {
       coordinates: [number, number][];
     };
+    streets:{
+      
+    }
     issues: {
       id: string;
       issueType: string;

@@ -62,6 +62,15 @@ export function adaptRideDetailFromApi(
     const speed = (d / 1000) / (5 / 3600); // 假设 5 秒采样
     maxSpeed = Math.max(maxSpeed, speed);
   }
+  const streets =
+  apiRide.reports?.map((report) => ({
+    id: report.street.id,
+    name: report.street.name,
+    city: report.street.city ?? null,
+    country: report.street.country ?? null,
+    condition: report.roadCondition,
+  })) ?? [];
+
 
   const ride: Ride = {
     id: apiRide.id,
@@ -88,6 +97,7 @@ export function adaptRideDetailFromApi(
       date: issue.createdAt,
       autoDetected: false,
     })),
+    streets
   };
 
   console.group("[RideDetail Adapter] ADAPTED UI DATA");

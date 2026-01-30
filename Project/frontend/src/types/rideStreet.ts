@@ -7,4 +7,5 @@ export type RideStreet = {
     index: number;
     coord: [number, number]; // [lng, lat]
   }[];
+  condition: string;
 };
