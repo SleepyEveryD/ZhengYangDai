@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   StopCircleIcon,
@@ -17,12 +17,14 @@ import type { Ride } from "../types/ride";
 import type { RideStreet } from "../types/rideStreet";
 import type { GeoJSON } from "geojson";
 
+
+
 /**
  * TRACK_MODE:
  * - "real": 用真实 GPS 轨迹（watchPosition）
  * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
  */
-const TRACK_MODE: "real" | "demo" = "demo";
+const TRACK_MODE: "real" | "demo" = "real";
 
 /** Demo 速度（m/s）：4~7 比较像骑行 */
 const DEMO_SPEED_MPS = 5.5;
@@ -41,6 +43,52 @@ const MIN_TURN_DEG = 25;
 
 // ---------- helpers ----------
 const toRad = (d: number) => (d * Math.PI) / 180;
+const splitRouteByProgress = (
+  route: [number, number][],
+  current: [number, number] | undefined
+) => {
+  if (!current || route.length < 2) {
+    return {
+      passed: [],
+      remaining: route,
+    };
+  }
+
+  let minDist = Infinity;
+  let closestIndex = 0;
+
+  for (let i = 0; i < route.length; i++) {
+    const d = haversineMeters(route[i], current);
+    if (d < minDist) {
+      minDist = d;
+      closestIndex = i;
+    }
+  }
+
+  return {
+    passed: route.slice(0, closestIndex + 1),
+    remaining: route.slice(closestIndex),
+  };
+};
+const snapToRoute = (
+  route: [number, number][],
+  current: [number, number]
+): [number, number] => {
+  let minDist = Infinity;
+  let snapped: [number, number] = route[0];
+
+  for (let i = 0; i < route.length; i++) {
+    const d = haversineMeters(route[i], current);
+    if (d < minDist) {
+      minDist = d;
+      snapped = route[i];
+    }
+  }
+
+  return snapped;
+};
+
+
 
 const haversineMeters = (a: [number, number], b: [number, number]) => {
   const [lat1, lng1] = a;
@@ -55,6 +103,7 @@ const haversineMeters = (a: [number, number], b: [number, number]) => {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(q));
 };
+
 
 const bearingDeg = (a: [number, number], b: [number, number]) => {
   const [lat1, lng1] = a.map(toRad) as [number, number];
@@ -126,9 +175,19 @@ export default function RideRecording() {
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
+  const location = useLocation();
+  const selectedRoute = location.state?.route;
+
+
 
   const [path, setPath] = useState<[number, number][]>([]);
+  const currentLocation: [number, number] | undefined =
+  path.length > 0 ? path[path.length - 1] : undefined;
+
   const [detectedIssues, setDetectedIssues] = useState<Issue[]>([]);
+  const [activeNavRoute, setActiveNavRoute] =
+  useState<[number, number][]>([]);
+
 
   // 基准位置（用于 demo 起点）
   const baseRef = useRef<[number, number] | null>(null);
@@ -220,6 +279,8 @@ export default function RideRecording() {
 
       demoRouteRef.current = demoPath;
       demoRouteReadyRef.current = true;
+      setActiveNavRoute(demoPath);
+
       demoSegRef.current = 0;
       demoTRef.current = 0;
 
@@ -278,6 +339,11 @@ export default function RideRecording() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+useEffect(() => {
+  if (TRACK_MODE === "real" && selectedRoute?.path?.length >= 2) {
+    setActiveNavRoute(selectedRoute.path);
+  }
+}, [selectedRoute]);
 
   // 计时：只负责 UI 时间；距离/速度用真实 track 算
   useEffect(() => {
@@ -459,6 +525,38 @@ export default function RideRecording() {
     saveRideLocal(rideForlocalStorage);
     navigate("/ride/confirm", { state: { ride: updatedRide } });
   };
+const navigationPaths = useMemo(() => {
+  if (!activeNavRoute.length) return [];
+
+ const snappedLocation =
+  TRACK_MODE === "real" && currentLocation
+    ? snapToRoute(activeNavRoute, currentLocation)
+    : currentLocation;
+
+const { passed, remaining } = splitRouteByProgress(
+  activeNavRoute,
+  snappedLocation
+);
+
+
+  return [
+    {
+      id: "route-passed",
+      path: passed,
+      color: "#94a3b8", // 灰
+      weight: 6,
+    },
+    {
+      id: "route-remaining",
+      path: remaining,
+      color: "#2563eb", // 蓝
+      weight: 6,
+    },
+  ];
+}, [activeNavRoute, currentLocation]);
+
+
+
 
   return (
     <div className="h-screen flex flex-col bg-white relative">
@@ -466,11 +564,13 @@ export default function RideRecording() {
         <MapView
           userPath={path}
           currentLocation={path.length ? path[path.length - 1] : undefined}
+            paths={navigationPaths}
           issues={detectedIssues.map((issue) => ({
             location: issue.location,
             type: issue.type,
           }))}
           followUser
+          
         />
       </div>
 
