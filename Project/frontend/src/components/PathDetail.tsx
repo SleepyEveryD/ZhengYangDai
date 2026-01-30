@@ -14,14 +14,17 @@ import MapView from "./MapView";
 import type { Route } from "../types/route";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { saveRideLocal } from '../services/rideStorage';
+import { useEffect, useState } from "react";
 
 
 
 export default function PathDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  useParams<{ id: string; }>();
   const location = useLocation();
+  const [streetReports, setStreetReports] = useState<any[]>([]);
+
 
   const route = location.state?.route as Route | undefined;
 
@@ -72,6 +75,39 @@ export default function PathDetail() {
         return "Unknown";
     }
   };
+
+console.log("Route streetIds:", safeRoute.streetIds);
+useEffect(() => {
+  if (!safeRoute.streetIds || safeRoute.streetIds.length === 0) {
+    console.log("No streetIds, skip fetching reports");
+    return;
+  }
+
+  const fetchStreetReports = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/map/street-reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          streetIds: safeRoute.streetIds,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("Street reports from backend:", data.reports);
+
+      setStreetReports(data.reports ?? []);
+    } catch (err) {
+      console.error("Failed to fetch street reports", err);
+    }
+  };
+
+  fetchStreetReports();
+}, [safeRoute.streetIds]);
+
+
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -178,68 +214,72 @@ export default function PathDetail() {
               ))}
             </div>
           </div>
+{/* User Reviews */}
+<div>
+  <div className="flex items-center gap-2 mb-3">
+    <MessageCircleIcon className="w-5 h-5 text-gray-600" />
+    <span className="text-gray-900">
+      User Reviews ({streetReports.length})
+    </span>
+  </div>
 
-          {/* Comments */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <MessageCircleIcon className="w-5 h-5 text-gray-600" />
-              <span className="text-gray-900">
-                User Reviews ({safeRoute.comments.length})
-              </span>
-            </div>
+  {streetReports.length > 0 ? (
+    <div className="space-y-3">
+      {streetReports.map((report, index) => (
+        <Card key={index}>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              {/* Avatar（固定匿名即可） */}
+              <Avatar className="w-10 h-10">
+                <AvatarFallback className="bg-green-600 text-white">
+                  U
+                </AvatarFallback>
+              </Avatar>
 
-            {safeRoute.comments.length > 0 ? (
-              <div className="space-y-3">
-                {safeRoute.comments.map((comment, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback className="bg-green-600 text-white">
-                            {comment.user[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-900">
-                              {comment.user}
-                            </span>
-                            <span className="text-gray-500">
-                              {comment.date}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 mb-2">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <StarIcon
-                                key={i}
-                                className={`w-4 h-4 ${
-                                  i < comment.rating
-                                    ? "text-yellow-500 fill-yellow-500"
-                                    : "text-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-gray-600">
-                            {comment.content}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex-1">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-gray-900 font-medium">
+                    Anonymous
+                  </span>
+                  <span className="text-gray-500 text-sm">
+                    {report.date
+                      ? new Date(report.date).toLocaleDateString()
+                      : ""}
+                  </span>
+                </div>
+
+                {/* Road condition */}
+                <Badge
+                  variant="secondary"
+                  className="mb-2 inline-block"
+                >
+                  Road condition: {report.roadCondition}
+                </Badge>
+
+                {/* Comment content */}
+                <p className="text-gray-600">
+                  {report.content || "No comment"}
+                </p>
               </div>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <MessageCircleIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500">
-                    No user reviews yet
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : (
+    <Card>
+      <CardContent className="p-8 text-center">
+        <MessageCircleIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+        <p className="text-gray-500">
+          No user reviews yet
+        </p>
+      </CardContent>
+    </Card>
+  )}
+</div>
+
+
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
@@ -10,7 +10,6 @@ import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from "./ui/tabs";
@@ -64,7 +63,6 @@ type FilterType = "all" | "pending" | "confirmed" | "fixed";
 export default function ReportHistory() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterType>("all");
-  const [totalDistanceKm, setTotalDistanceKm] = useState(0);
 
 
   const getIssueTypeText = (type: string) => {

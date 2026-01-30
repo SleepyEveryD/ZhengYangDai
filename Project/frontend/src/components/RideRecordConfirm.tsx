@@ -52,7 +52,9 @@ function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
       startPoint: start,
       endPoint: end,
       condition: "GOOD",
+      notes: "",
       pathCoordinates: ride.path.slice(start, end + 1),
+      
     };
   });
 }
@@ -126,6 +128,7 @@ export default function RideRecordConfirm() {
       return {
         ...street,
         condition: segment?.condition ?? 'GOOD',
+        comment: segment?.notes ?? null,
       };
     });
     console.log("streets with condition", streetsWithCondition);

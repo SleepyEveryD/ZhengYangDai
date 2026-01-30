@@ -50,6 +50,7 @@ type BackendRoute = {
   // 可解释信息（可选）
   confidence?: number;
   explain?: ExplainPayload;
+  streetIds: string[];
 };
 
 type NavState = {
@@ -142,6 +143,8 @@ export default function PathResults() {
         });
 
         const data = await res.json();
+        console.log("DEBUG routes from backend:", data.routes);
+
         const list: BackendRoute[] = Array.isArray(data.routes) ? data.routes : [];
 
         // ✅ 防御：没有 score 的 route 一律当 0 分
@@ -149,6 +152,9 @@ export default function PathResults() {
           ...r,
           score: typeof r.score === "number" ? r.score : 0,
         }));
+        normalized.forEach((r) => {
+  console.log("Route from backend:", r.id, r.streetIds);
+});
 
         // ✅ 前端再排序一次，确保 Recommended 永远是最高分（避免后端忘了 sort）
         normalized.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));

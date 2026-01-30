@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
@@ -14,12 +14,6 @@ import { useNavigate } from "react-router-dom";
 
 type MapExplorerProps = {
   user: User;
-};
-
-type PathItem = {
-  id: string;
-  coordinates: [number, number][];
-  condition: "excellent" | "good" | "fair" | "needRepair";
 };
 
 export default function MapExplorer({ user }: MapExplorerProps) {

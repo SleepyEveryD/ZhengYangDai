@@ -7,12 +7,19 @@ import type { User } from "../types/user";
 
 type PathPlanningProps = { user?: User };
 
-export default function PathPlanning({ user }: PathPlanningProps) {
+export default function PathPlanning({ }: PathPlanningProps) {
   const navigate = useNavigate();
 
   const [origin, setOrigin] = useState("");              // 文本（可选）
   const [originCoords, setOriginCoords] = useState<[number, number] | null>(null); // 坐标（关键）
   const [destination, setDestination] = useState("");
+ const PRESET_DESTINATIONS = [
+  "Milano Centrale",
+  "Milano Loreto",
+  "BCL Milano",
+];
+
+
 
   // ✅ 页面加载就定位到用户（米兰）
 useEffect(() => {
@@ -96,17 +103,37 @@ const useCurrentLocation = () => {
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="mt-3"><TargetIcon className="w-5 h-5 text-red-600" /></div>
-          <div className="flex-1">
-            <label className="text-gray-600 mb-2 block">Destination</label>
-            <Input
-              placeholder="Enter destination address..."
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="h-12"
-            />
-          </div>
-        </div>
+  <div className="mt-3">
+    <TargetIcon className="w-5 h-5 text-red-600" />
+  </div>
+
+  <div className="flex-1">
+    <label className="text-gray-600 mb-2 block">Destination</label>
+
+    <Input
+      placeholder="Enter destination address..."
+      value={destination}
+      onChange={(e) => setDestination(e.target.value)}
+      className="h-12"
+    />
+
+    {/* 👇 固定地址就在这里 */}
+    <div className="mt-2 flex gap-2 flex-wrap">
+      {PRESET_DESTINATIONS.map((place) => (
+        <button
+          key={place}
+          type="button"
+          onClick={() => setDestination(place)}
+          className="px-3 py-1 text-sm rounded-full border border-gray-300
+                     text-gray-700 hover:bg-gray-100"
+        >
+          {place}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
+
       </div>
 
       <div className="p-4 border-t">

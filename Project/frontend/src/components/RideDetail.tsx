@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "./ui/button";
+import WeatherWidget from "./Weather";
 import {
   ArrowLeftIcon,
   CalendarIcon,
-  ClockIcon,
-  RulerIcon,
-  TrendingUpIcon,
-  ZapIcon,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -22,12 +19,12 @@ import { buildSegmentsFromStreets } from "../utils/buildSegmentsFromStreets";
 
 import type { RoadConditionSegment } from "./RideReportEditorDialog";
 import { rideRouteService } from "../services/reportService";
-import type { GeoJSON } from "geojson";
 import { saveRideLocal } from "../services/rideStorage";
 import { RIDE_QUEUE_UPDATED } from "../constants/events";
 import IssueList from "./IssueList";
 import RoadConditionList from "./RoadConditionList";
 import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
+
 
 /* ===================================================== */
 
@@ -192,6 +189,7 @@ export default function RideDetail() {
         country: s.country,
         positions: s.positions,
         condition: segments[i]?.condition ?? "GOOD",
+         comment: segments[i]?.notes ?? null
       })),
 
       avgSpeed: ride.avgSpeed,
@@ -344,6 +342,7 @@ export default function RideDetail() {
               <Stat label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
+           <WeatherWidget />
 
           {isEditing && (
             <RoadConditionRequiredCard

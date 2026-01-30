@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -38,6 +37,7 @@ export type RoadConditionSegment = {
   endPoint: number;
   condition: RoadCondition;
   pathCoordinates: [number, number][];
+  notes?: string | null;
 };
 /* =========================
    Constants
@@ -108,7 +108,6 @@ export default function
      Utils
   ========================= */
 
-  const isOther = newIssueType === IssueType.OTHER;
  
   
 
@@ -419,58 +418,78 @@ export default function
                 </h4>
 
                 {segments.map((segment, index) => (
-                  <Card
-                    key={segment.id}
-                    className="cursor-pointer hover:border-blue-500 transition"
-                    onClick={() =>
-                      setHighlightSegment({
-                        startIndex: segment.startPoint,
-                        endIndex: segment.endPoint,
-                      })
-                    }
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        {/* Left: street name */}
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {segment.name || `Unnamed road ${index + 1}`}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {segment.pathCoordinates.length} points · approx{" "}
-                            {(segment.pathCoordinates.length * 0.05).toFixed(2)} km
-                          </p>
-                        </div>
-
-                        {/* Right: road condition selector */}
-                        <Select
-                          value={segment.condition}
-                          onValueChange={(v) =>
-                            onChange({
-                              issues,
-                              segments: segments.map((s) =>
-                                s.id === segment.id
-                                  ? { ...s, condition: v as any }
-                                  : s
-                              ),
-                            })
-                          }
+                 <Card
+                   key={segment.id}
+  className="cursor-pointer hover:border-blue-500 transition"
+  onClick={() =>
+    setHighlightSegment({
+      startIndex: segment.startPoint,
+      endIndex: segment.endPoint,
+    })
+                        }
                         >
-                          <SelectTrigger className="w-[160px] h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="EXCELLENT">Excellent</SelectItem>
-                            <SelectItem value="GOOD">Good</SelectItem>
-                            <SelectItem value="FAIR">Fair</SelectItem>
-                            <SelectItem value="NEED_REPAIR">
-                              Needs Repair
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
+  <CardContent className="p-4 space-y-3">
+    {/* 上半部分：名字 + condition */}
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-gray-900">
+          {segment.name || `Unnamed road ${index + 1}`}
+        </p>
+        <p className="text-xs text-gray-600">
+          {segment.pathCoordinates.length} points · approx{" "}
+          {(segment.pathCoordinates.length * 0.05).toFixed(2)} km
+        </p>
+      </div>
+
+      <Select
+        value={segment.condition}
+        onValueChange={(v) =>
+          onChange({
+            issues,
+            segments: segments.map((s) =>
+              s.id === segment.id
+                ? { ...s, condition: v as RoadCondition }
+                : s
+            ),
+          })
+        }
+      >
+        <SelectTrigger className="w-[160px] h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="EXCELLENT">Excellent</SelectItem>
+          <SelectItem value="GOOD">Good</SelectItem>
+          <SelectItem value="FAIR">Fair</SelectItem>
+          <SelectItem value="NEED_REPAIR">Needs Repair</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* ✅ 新增：评论输入 */}
+    <div className="space-y-1">
+      <Label className="text-xs text-gray-600">
+        Comment (optional)
+      </Label>
+      <Textarea
+        placeholder="Describe the road condition..."
+        value={segment.notes ?? ""}
+        onChange={(e) =>
+          onChange({
+            issues,
+            segments: segments.map((s) =>
+              s.id === segment.id
+                ? { ...s, notes: e.target.value }
+                : s
+            ),
+          })
+        }
+        className="min-h-[72px] bg-gray-50"
+      />
+    </div>
+  </CardContent>
+</Card>
+
                 ))}
               </div>
             ) : (

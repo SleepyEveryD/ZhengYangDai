@@ -211,6 +211,12 @@ export class RideService {
        * -------------------------------- */
       for (const street of streets) {
         if (!street) continue;
+        console.log("🧩 incoming street:", {
+  name: street?.name,
+  condition: street?.condition,
+  comment: street?.comment,
+});
+
   
         const externalId: string | undefined = street.externalId;
         const name: string | null = street.name ?? null;
@@ -314,7 +320,9 @@ export class RideService {
         if (existingReport) {
           await tx.streetReport.update({
             where: { id: existingReport.id },
-            data: { roadCondition },
+            data: { roadCondition,
+              notes: street.comment ?? null,
+             },
           });
         } else {
           //console.log(" streetReport creation: ", userId);
@@ -322,7 +330,7 @@ export class RideService {
           //console.log(" streetReport creation: ", streetId);
           //console.log(" streetReport creation: ", roadCondition);
           await tx.streetReport.create({
-            data: { userId, rideId, streetId, roadCondition },
+            data: { userId, rideId, streetId, roadCondition,notes: street.comment ?? null, },
             
           });
         }
