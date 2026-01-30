@@ -31,60 +31,108 @@ export class RideService {
   /* ======================================================
    *  Draft Ride (RAW SQL, writes routeGeometry)
    * ====================================================== */
-  async saveDraftRide(rideId: string, userId: string, routeGeoJson: any) {
+  async saveDraftRide({
+      rideId,
+      userId,
+      payload,
+    }: {
+      rideId: string;
+      userId: string;
+      payload: {
+        startedAt?: string;
+        endedAt?: string;
+        routeGeoJson: any;
+        weather?: {
+          temp?: number | null;
+          condition?: string | null;
+          wind?: string | null;
+          raw?: any;
+        } | null;
+      };
+    }) {
+    const { startedAt, endedAt, routeGeoJson, weather } = payload ?? {};
+  
     if (!routeGeoJson) {
-      throw new BadRequestException('routeGeoJson is required');
+      throw new BadRequestException("routeGeoJson is required");
     }
-
+  
     return this.prisma.$transaction(async (tx) => {
+      /* --------------------------------
+       * 0) Guard
+       * -------------------------------- */
       const existing = await tx.ride.findUnique({
         where: { id: rideId },
         select: { status: true },
       });
-
-      if (existing?.status === 'CONFIRMED') {
-        throw new ConflictException('Ride already confirmed');
+  
+      if (existing?.status === "CONFIRMED") {
+        throw new ConflictException("Ride already confirmed");
       }
-
-      try {
-        await tx.$executeRaw`
-          INSERT INTO "Ride" (
-            id,
-            "userId",
-            "routeGeoJson",
-            "routeGeometry",
-            status,
-            "startedAt",
-            "endedAt"
-          )
-          VALUES (
-            ${rideId},
-            ${userId},
-            ${routeGeoJson}::jsonb,
-            ST_SetSRID(
-              ST_GeomFromGeoJSON(${JSON.stringify(routeGeoJson)}),
-              4326
-            )::geography,
-            'DRAFT'::"RideStatus",
-            NOW(),
-            NOW()
-          )
-          ON CONFLICT (id) DO UPDATE
-          SET
-            "routeGeoJson" = EXCLUDED."routeGeoJson",
-            "routeGeometry" = EXCLUDED."routeGeometry",
-            "userId" = EXCLUDED."userId",
-            status = 'DRAFT'::"RideStatus"
-        `;
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('🔥 saveDraftRide SQL error', e);
-        throw e;
+  
+      /* --------------------------------
+       * 1) Upsert Ride (DRAFT)
+       * -------------------------------- */
+      const sAt = startedAt ? new Date(startedAt) : new Date();
+      const eAt = endedAt ? new Date(endedAt) : new Date();
+  
+      await tx.$executeRaw`
+        INSERT INTO "Ride" (
+          id,
+          "userId",
+          "routeGeoJson",
+          "routeGeometry",
+          status,
+          "startedAt",
+          "endedAt"
+        )
+        VALUES (
+          ${rideId},
+          ${userId},
+          ${routeGeoJson}::jsonb,
+          ST_SetSRID(
+            ST_GeomFromGeoJSON(${JSON.stringify(routeGeoJson)}),
+            4326
+          )::geography,
+          'DRAFT'::"RideStatus",
+          ${sAt},
+          ${eAt}
+        )
+        ON CONFLICT (id) DO UPDATE
+        SET
+          "routeGeoJson"  = EXCLUDED."routeGeoJson",
+          "routeGeometry" = EXCLUDED."routeGeometry",
+          "userId"        = EXCLUDED."userId",
+          "startedAt"     = EXCLUDED."startedAt",
+          "endedAt"       = EXCLUDED."endedAt",
+          status          = 'DRAFT'::"RideStatus"
+      `;
+  
+      /* --------------------------------
+       * 2) Upsert RideWeather (same as confirm)
+       * -------------------------------- */
+      if (weather) {
+        await tx.rideWeather.upsert({
+          where: { rideId },
+          create: {
+            rideId,
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+          update: {
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+        });
       }
-
+  
       return { success: true, rideId };
     });
   }
+  
 
   /* ======================================================
    *  Confirm Ride (DRAFT -> CONFIRMED)
@@ -94,8 +142,10 @@ export class RideService {
    * ====================================================== */
   async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     console.log("payload ", payload);
+    console.log("start transaction");
   
-    const { startedAt, endedAt, routeGeoJson, streets, issues } = payload ?? {};
+    const { startedAt, endedAt, routeGeoJson, streets, issues, weather} = payload ?? {};
+    console.log("weather ", weather);
   
     if (!routeGeoJson) {
       throw new BadRequestException("routeGeoJson is required");
@@ -105,6 +155,8 @@ export class RideService {
     }
   
     return this.prisma.$transaction(async (tx) => {
+      console.log("start transaction");
+      
       /* --------------------------------
        * 0) Guard: cannot reconfirm
        * -------------------------------- */
@@ -273,10 +325,10 @@ export class RideService {
              },
           });
         } else {
-          console.log(" streetReport creation: ", userId);
-          console.log(" streetReport creation: ", rideId);
-          console.log(" streetReport creation: ", streetId);
-          console.log(" streetReport creation: ", roadCondition);
+          //console.log(" streetReport creation: ", userId);
+          //console.log(" streetReport creation: ", rideId);
+          //console.log(" streetReport creation: ", streetId);
+          //console.log(" streetReport creation: ", roadCondition);
           await tx.streetReport.create({
             data: { userId, rideId, streetId, roadCondition,notes: street.comment ?? null, },
             
@@ -320,16 +372,28 @@ export class RideService {
           )
         `;
       }
-      const check = await tx.streetReport.findMany({
-  where: { rideId, userId },
-  select: {
-    streetId: true,
-    roadCondition: true,
-    notes: true,
-  },
-});
-
-console.log("✅ reports saved:", check);
+      /* --------------------------------
+       * 4)  RideWeather (TEMP)
+       * -------------------------------- */
+   
+      if (weather) {
+        await tx.rideWeather.upsert({
+          where: { rideId },
+          create: {
+            rideId,
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+          update: {
+            temp: weather.temp ?? null,
+            condition: weather.condition ?? null,
+            wind: weather.wind ?? null,
+            raw: weather.raw ?? null,
+          },
+        });
+      }
 
       return { success: true, rideId };
     });
