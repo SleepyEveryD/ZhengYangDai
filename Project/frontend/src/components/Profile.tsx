@@ -26,6 +26,8 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
 
   if (!user) return <Navigate to="/login" replace />;
+  console.log("user log", user);
+  
 
   useEffect(() => {
     let mounted = true;

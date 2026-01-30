@@ -1,3 +1,4 @@
+//Project/frontend/src/auth/AuthProvider.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { AuthContext } from "./AuthContext";
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: data.session.user.id,
           email: data.session.user.email!,
+          name:data.session.user.user_metadata.name,
         });
       }
       setLoading(false);
@@ -30,10 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({
             id: session.user.id,
             email: session.user.email!,
+            name: session.user.user_metadata?.name ?? null,
           });
         } else {
           setUser(null);
         }
+        
         console.log('session:', session)
       }
     );
