@@ -22,7 +22,7 @@ import RoadConditionReportDialog from "./RideReportEditorDialog";
 
 import type {
   RoadConditionSegment,
-} from "./RoadConditionReportDialog";
+} from "./RideReportEditorDialog";
 
 /* =========================
    Utils
