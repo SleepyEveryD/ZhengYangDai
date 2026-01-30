@@ -4,10 +4,6 @@ import { Button } from "./ui/button";
 import {
   ArrowLeftIcon,
   CalendarIcon,
-  ClockIcon,
-  RulerIcon,
-  TrendingUpIcon,
-  ZapIcon,
 } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -22,7 +18,6 @@ import { buildSegmentsFromStreets } from "../utils/buildSegmentsFromStreets";
 
 import type { RoadConditionSegment } from "./RideReportEditorDialog";
 import { rideRouteService } from "../services/reportService";
-import type { GeoJSON } from "geojson";
 import { saveRideLocal } from "../services/rideStorage";
 import { RIDE_QUEUE_UPDATED } from "../constants/events";
 import IssueList from "./IssueList";
