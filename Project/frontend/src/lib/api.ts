@@ -1,7 +1,10 @@
 import axios from "axios";
 import { authReady } from "../auth/authReady";
 import { getAccessToken } from "../auth/authToken";
-
+console.log(
+  "[API BASE URL]",
+  import.meta.env.VITE_API_BASE_URL
+);
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 15000,

@@ -346,15 +346,19 @@ export default function RideRecording() {
     };
 
     try {
-      const res = await fetch("http://localhost:3000/map/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin,
-          destination,
-          travelMode: "BICYCLING",
-        }),
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/map/analyze`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            origin,
+            destination,
+            travelMode: "BICYCLING",
+          }),
+        }
+      );
+      
 
       const data = await res.json();
       const demoPath = data?.routes?.[0]?.path as [number, number][] | undefined;
