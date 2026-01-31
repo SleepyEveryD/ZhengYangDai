@@ -233,17 +233,6 @@ export default function RideRecordConfirm() {
 
           <IssueList issues={issues} />
 
-          {issues.length === 0 && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <CheckCircleIcon className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                <p className="text-gray-600">
-                  No road issues detected on this ride
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
           <RoadConditionRequiredCard
             hasSegments={roadConditionSegments.length > 0}
             onOpenEditor={() => {
