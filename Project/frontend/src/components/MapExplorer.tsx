@@ -24,6 +24,14 @@ export default function MapExplorer({ user }: MapExplorerProps) {
   const [locReady, setLocReady] = useState(false);
   const [highlightedPath, setHighlightedPath] = useState<[number, number][]>([]);
   const [issues, setIssues] = useState<{ location: [number, number]; type?: string }[]>([]);
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);  
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -74,7 +82,8 @@ export default function MapExplorer({ user }: MapExplorerProps) {
 
 
   return (
-    <div className="min-h-screen h-[100dvh] flex flex-col bg-gray-50">
+    <div className="h-[100dvh] overflow-hidden flex flex-col bg-gray-50">
+
       {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
         <div className="flex items-center gap-3">

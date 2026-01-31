@@ -66,7 +66,7 @@ type NavState = {
  *  - 完全由 final score 决定 excellent/good/fair/needRepair
  * ========= */
 function conditionFromScore(score: number): Route["condition"] {
-  if (score >= 85) return "excellent";
+  if (score >= 90) return "excellent";
   if (score >= 70) return "good";
   if (score >= 50) return "fair";
   return "needRepair";
@@ -286,7 +286,7 @@ export default function PathResults() {
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="flex items-center gap-2">
                       <RulerIcon className="w-4 h-4 text-gray-400" />
                       <div>
@@ -303,14 +303,7 @@ export default function PathResults() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <TrendingUpIcon className="w-4 h-4 text-gray-400" />
-                      <div>
-                        {/* 你后端如果未来返回 segmentsCount，可以替换这里 */}
-                        <p className="text-gray-900">1 seg</p>
-                        <p className="text-gray-500">Segments</p>
-                      </div>
-                    </div>
+                   
                   </div>
 
                   <Button
