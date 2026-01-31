@@ -569,14 +569,22 @@ useEffect(() => {
 
 
   const handleStop = async () => {
+    console.log("stop clicked");
+    
     const storedRide = getCurrentRide();
     if (!storedRide) return;
     const baseRide: Ride = { ...storedRide };
 
     if (trackRef.current.length < 2) {
-      toast.error("Not enough points recorded.");
+      toast.error("Route too short. Ride was not saved.");
+     
+    
+      // ❌ 不保存，直接返回地图
+      navigate("/map", { replace: true });
+    
       return;
     }
+    
 
     const recordedPath: [number, number][] = trackRef.current.map((p) => [
       p.lat,
