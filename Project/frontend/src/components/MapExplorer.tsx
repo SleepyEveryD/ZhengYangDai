@@ -41,33 +41,36 @@ export default function MapExplorer({ user }: MapExplorerProps) {
     );
   }, []);
   useEffect(() => {
-  if (!currentLocation) return;
-
-  fetch("http://localhost:3000/map/analyze", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      origin: {
-        lat: currentLocation[0],
-        lng: currentLocation[1],
+    if (!currentLocation) return;
+  
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/map/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      destination: {
-        lat: currentLocation[0] + 0.01,
-        lng: currentLocation[1] + 0.01,
-      },
-      travelMode: "BICYCLING",
-    }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      console.log("route result:", data);
-      setHighlightedPath(data.highlightedPath ?? []);
-      setIssues([]);
+      body: JSON.stringify({
+        origin: {
+          lat: currentLocation[0],
+          lng: currentLocation[1],
+        },
+        destination: {
+          lat: currentLocation[0] + 0.01,
+          lng: currentLocation[1] + 0.01,
+        },
+        travelMode: "BICYCLING",
+      }),
     })
-    .catch(console.error);
-}, [currentLocation]);
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("route result:", data);
+        setHighlightedPath(data.highlightedPath ?? []);
+        setIssues([]);
+      })
+      .catch((err) => {
+        console.error("failed to fetch analyze route", err);
+      });
+  }, [currentLocation]);
+  
 
 
   return (
