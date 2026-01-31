@@ -20,7 +20,7 @@ import type { RideStreet } from "../types/rideStreet";
  * - "real": 用真实 GPS 轨迹（watchPosition）
  * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
  */
-const TRACK_MODE: "real" | "demo" = "demo";
+const TRACK_MODE: "real" | "demo" = "real";
 
 /** Demo 速度（m/s）：4~7 比较像骑行 */
 const DEMO_SPEED_MPS = 5.5;
