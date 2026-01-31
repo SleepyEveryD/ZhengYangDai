@@ -144,28 +144,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* Weekly Chart —— 原样保留 */}
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-gray-900 mb-4 font-semibold">
-                This Week&apos;s Stats
-              </h3>
-              <div className="h-32 flex items-end justify-between gap-2">
-                {[12, 8, 15, 20, 18, 25, 22].map((height, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-green-500 rounded-t"
-                      style={{ height: `${(height / 25) * 100}%` }}
-                    />
-                    <span className="text-gray-500 mt-2 text-xs">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Menu Items */}
           {!isLoading && (
             <div className="space-y-2">
