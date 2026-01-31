@@ -61,19 +61,7 @@ export default function RideRecordPrepare() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangleIcon className="w-5 h-5 text-orange-600 mt-0.5" />
-                <div>
-                  <p className="text-gray-900 mb-1">Auto Detection</p>
-                  <p className="text-gray-600">
-                    Sensors automatically detect road potholes and obstacles
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+   
         </div>
 
         {/* Permission Notice */}
