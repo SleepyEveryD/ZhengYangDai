@@ -229,7 +229,7 @@ export default function RideRecordConfirm() {
             </CardContent>
           </Card>
 
-          <Weather value={weather} onChange={setWeather} />
+          <Weather value={weather} />
 
           <IssueList issues={issues} />
 

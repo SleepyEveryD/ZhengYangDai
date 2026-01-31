@@ -454,6 +454,16 @@ export class RideService {
         startedAt: true,
         endedAt: true,
         routeGeoJson: true,
+        weather: {
+          select: {
+            temp: true,
+            condition: true,
+            wind: true,
+            raw: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         issues: {
           orderBy: { createdAt: 'asc' },
           select: {
