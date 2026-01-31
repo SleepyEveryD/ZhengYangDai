@@ -13,6 +13,8 @@ import { Badge } from "./ui/badge";
 import MapView from "./MapView";
 import { motion } from "motion/react";
 import type { Route } from "../types/route";
+import api from "../lib/api";
+
 
 type ExplainPayload = {
   mode?: "real" | "mock";
@@ -132,17 +134,14 @@ export default function PathResults() {
       setLoading(true);
 
       try {
-        const res = await fetch("http://localhost:3000/map/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            origin: originForDirections,
-            destination: destinationForDirections,
-            travelMode: "BICYCLING",
-          }),
+        const res = await api.post("/map/analyze", {
+          origin: originForDirections,
+          destination: destinationForDirections,
+          travelMode: "BICYCLING",
         });
+        
 
-        const data = await res.json();
+        const data = await res.data;
         console.log("DEBUG routes from backend:", data.routes);
 
         const list: BackendRoute[] = Array.isArray(data.routes) ? data.routes : [];
