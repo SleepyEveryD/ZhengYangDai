@@ -1,89 +1,78 @@
 import { useEffect, useState } from "react";
+import type { RideWeather } from "../types/weather";
+
 const API_KEY = import.meta.env.VITE_OPEN_WEATHER_KEY;
 
-type WeatherWidgetProps = {
+type WeatherProps = {
   value?: RideWeather | null;
-  onChange?: (weather: RideWeather) => void;
 };
 
-export default function WeatherWidget({ value, onChange }: WeatherWidgetProps) {
-  const [editing, setEditing] = useState(false);
+export default function Weather({ value }: WeatherProps) {
+  const [weather, setWeather] = useState<RideWeather | null>(value ?? null);
   const [error, setError] = useState<string | null>(null);
 
-  // 本地仅用于“自动获取”
+  // 同步父组件传入的 value
   useEffect(() => {
-    if (value) return; // 父组件已经有数据，不自动覆盖
+    if (value) {
+      setWeather(value);
+    }
+  }, [value]);
+
+  // 自动获取（仅在没有 weather 时）
+  useEffect(() => {
+    if (weather) return;
+    if (!API_KEY) {
+      setError("Weather API key missing");
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
+        try {
+          const { latitude, longitude } = pos.coords;
 
-        const res = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=en&appid=${API_KEY}`
-        );
-        const data = await res.json();
+          const res = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=en&appid=${API_KEY}`
+          );
+          const data = await res.json();
 
-        const auto: RideWeather = {
-          temp: Math.round(data.main.temp),
-          condition: data.weather[0].description,
-          wind: formatWind(data.wind.deg, data.wind.speed),
-          raw: data,
-        };
-
-        onChange?.(auto);
+          setWeather({
+            temp: Math.round(data.main.temp),
+            condition: data.weather?.[0]?.description,
+            wind: formatWind(data.wind.deg, data.wind.speed),
+            raw: data,
+          });
+        } catch {
+          setError("Failed to fetch weather");
+        }
       },
       () => setError("Location permission denied")
     );
-  }, [value, onChange]);
+  }, [weather]);
 
-  const display = value;
+  if (error) {
+    return <div className="text-sm text-red-500">{error}</div>;
+  }
 
-  if (error) return <div className="text-sm text-red-500">{error}</div>;
-  if (!display) return <div className="text-sm text-gray-400">Loading weather...</div>;
+  if (!weather) {
+    return <div className="text-sm text-gray-400">Loading weather...</div>;
+  }
 
   return (
     <div className="rounded-xl border p-4 bg-white shadow-sm">
-      {!editing ? (
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="mt-1 text-3xl font-semibold">
-              {display.temp}°C
-            </div>
-            <div className="text-sm text-gray-600 capitalize">
-              {display.condition}
-            </div>
-            <div className="text-sm text-gray-600">
-              🌬 {display.wind}
-            </div>
-          </div>
+      <div className="text-sm text-gray-500 mb-1">Weather</div>
 
-          <button onClick={() => setEditing(true)}>Edit</button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <input
-            value={display.temp ?? ""}
-            type="number"
-            onChange={(e) =>
-              onChange?.({ ...display, temp: Number(e.target.value) })
-            }
-          />
-          <input
-            value={display.condition ?? ""}
-            onChange={(e) =>
-              onChange?.({ ...display, condition: e.target.value })
-            }
-          />
-          <input
-            value={display.wind ?? ""}
-            onChange={(e) =>
-              onChange?.({ ...display, wind: e.target.value })
-            }
-          />
+      <div className="text-3xl font-semibold">
+        {weather.temp ?? "--"}°C
+      </div>
 
-          <button onClick={() => setEditing(false)}>Save</button>
-        </div>
-      )}
+      <div className="text-sm text-gray-600 capitalize">
+        {weather.condition ?? "Unknown"}
+      </div>
+
+      <div className="text-sm text-gray-600">
+        🌬 {weather.wind ?? "-"}
+      </div>
     </div>
   );
 }
@@ -96,12 +85,12 @@ function formatWind(deg: number, speed: number) {
 }
 
 function windDegToText(deg: number) {
-  if (deg >= 337.5 || deg < 22.5) return "North Wind";
-  if (deg < 67.5) return "North-East Wind";
-  if (deg < 112.5) return "East Wind";
-  if (deg < 157.5) return "South-East Wind";
-  if (deg < 202.5) return "South Wind";
-  if (deg < 247.5) return "South-West Wind";
-  if (deg < 292.5) return "West Wind";
-  return "North-West Wind";
+  if (deg >= 337.5 || deg < 22.5) return "N";
+  if (deg < 67.5) return "NE";
+  if (deg < 112.5) return "E";
+  if (deg < 157.5) return "SE";
+  if (deg < 202.5) return "S";
+  if (deg < 247.5) return "SW";
+  if (deg < 292.5) return "W";
+  return "NW";
 }
