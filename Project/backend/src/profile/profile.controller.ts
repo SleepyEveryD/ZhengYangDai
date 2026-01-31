@@ -4,7 +4,7 @@ import { SupabaseAuthGuard } from "../auth/supabase-auth.guard"
 import { ProfileResponseDto } from "./dto/profile.dto"
 
 
-@Controller("profile")
+@Controller("api/profile")
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 

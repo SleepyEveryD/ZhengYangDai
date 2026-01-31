@@ -36,7 +36,7 @@ class RideRouteService {
 
     // 2️⃣ backend resolve
     const res = await api.post<ResolveStreetsResponse>(
-      "/report/resolve-streets",
+      "/api/report/resolve-streets",
       { points }
     );
 

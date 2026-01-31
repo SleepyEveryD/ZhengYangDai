@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { StreetResolverService } from '../report/street-resolver.service';
 
-@Controller('report')
+@Controller('api/report')
 export class PathReportController {
   constructor(
     private readonly streetResolver: StreetResolverService

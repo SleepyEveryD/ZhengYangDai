@@ -1,6 +1,6 @@
-// src/lib/api.ts
 import axios from "axios";
-import { supabase } from "./supabase";
+import { authReady } from "../auth/authReady";
+import { getAccessToken } from "../auth/authToken";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -8,8 +8,10 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  // ⏳ 等 Supabase auth 初始化完成
+  await authReady;
+
+  const token = getAccessToken();
 
   if (token) {
     config.headers = config.headers ?? {};

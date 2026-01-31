@@ -139,12 +139,15 @@ export default function RideDetail() {
       mounted = false;
     };
   }, [rideId]);
+
   // ✅ 当 ride 加载完成后，同步 weather（只做一次）
   useEffect(() => {
     if (ride?.weather) {
       setWeather(ride.weather);
     }
   }, [ride]);
+
+
 
   /* ---------------- handlers ---------------- */
 
@@ -276,11 +279,19 @@ export default function RideDetail() {
       </div>
     );
   }
-
   if (!ride) {
-    navigate("/rides");
-    return null;
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-500">Ride not found or no access.</p>
+        <Button onClick={() => navigate("/rides")}>
+          Back to rides
+        </Button>
+      </div>
+    );
   }
+
+
+  
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -344,11 +355,10 @@ export default function RideDetail() {
           </div>
 
           <Card>
-            <CardContent className="p-4 grid grid-cols-2 gap-4">
+            <CardContent className="p-4 grid grid-cols-3 gap-4">
               <Stat label="Distance" value={`${ride.distance} km`} />
               <Stat label="Duration" value={formatTime(ride.duration)} />
               <Stat label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
-              <Stat label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
           <WeatherWidget

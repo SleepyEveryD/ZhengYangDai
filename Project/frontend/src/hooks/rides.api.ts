@@ -27,7 +27,7 @@ export async function getMyRides(
   page = 1,
   limit = 20
 ): Promise<RideListResponse> {
-  const res = await api.get<RideListResponse>("/rides", {
+  const res = await api.get<RideListResponse>("/api/rides", {
     params: { page, limit },
   });
   return res.data;

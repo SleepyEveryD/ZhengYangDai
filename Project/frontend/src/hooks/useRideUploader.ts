@@ -30,10 +30,10 @@ export function useRideUploader() {
 
         if (payload.status === "DRAFT") {
   
-          await api.put(`/rides/${payload.id}/save`, payload);
+          await api.put(`/api/rides/${payload.id}/save`, payload);
         } else {
           console.log("⬆️ confirming ride", payload.id);
-          await api.post(`/rides/${payload.id}/confirm`, payload);
+          await api.post(`/api/rides/${payload.id}/confirm`, payload);
         }
 
         // ✅ 2️⃣ 标记为 uploaded

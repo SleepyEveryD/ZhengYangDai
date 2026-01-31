@@ -1,20 +1,26 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig({
-  server: {
-    port: 5173,
-    strictPort: true,
+export default defineConfig(({ mode }) => {
+  // 👇 加载 env
+  const env = loadEnv(mode, process.cwd());
 
-    // ✅ 关键：把 /rides 转发到 Nest 后端
-    proxy: {
-      '/rides': {
-        target: 'http://localhost:3000', // 👈 改成你 Nest 实际端口
-        changeOrigin: true,
-        secure: false,
+  return {
+    server: {
+      port: 5173,
+      strictPort: true,
+      historyApiFallback: true,
+
+      proxy: {
+        // ✅ 只代理 API
+        '/api': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
-  },
-  plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss()],
+  };
 });

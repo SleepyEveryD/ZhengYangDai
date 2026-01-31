@@ -68,5 +68,5 @@ export interface RideDetailApiResponse {
 export async function getRideDetail(
   rideId: string
 ): Promise<RideDetailApiResponse> {
-  return api.get<RideDetailApiResponse>(`/rides/${rideId}`);
+  return api.get<RideDetailApiResponse>(`/api/rides/${rideId}`);
 }
