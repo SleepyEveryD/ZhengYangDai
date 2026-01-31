@@ -1,154 +1,87 @@
-// @ts-nocheck
 import { useEffect, useState } from "react";
-
 const API_KEY = import.meta.env.VITE_OPEN_WEATHER_KEY;
 
-export default function WeatherWidget() {
-  const [autoWeather, setAutoWeather] = useState<any>(null);
-  const [customWeather, setCustomWeather] = useState<any>(null);
+type WeatherWidgetProps = {
+  value?: RideWeather | null;
+  onChange?: (weather: RideWeather) => void;
+};
+
+export default function WeatherWidget({ value, onChange }: WeatherWidgetProps) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 本地仅用于“自动获取”
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setError("Geolocation not supported");
-      return;
-    }
+    if (value) return; // 父组件已经有数据，不自动覆盖
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
 
-        try {
-          const res = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=en&appid=${API_KEY}`
-          );
-          const data = await res.json();
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=en&appid=${API_KEY}`
+        );
+        const data = await res.json();
 
-          setAutoWeather({
-            city: data.name,
-            temp: Math.round(data.main.temp),
-            condition: data.weather[0].description,
-            wind: formatWind(data.wind.deg, data.wind.speed),
-          });
-        } catch {
-          setError("Failed to load weather");
-        }
+        const auto: RideWeather = {
+          temp: Math.round(data.main.temp),
+          condition: data.weather[0].description,
+          wind: formatWind(data.wind.deg, data.wind.speed),
+          raw: data,
+        };
+
+        onChange?.(auto);
       },
-      () => {
-        setError("Location permission denied");
-      }
+      () => setError("Location permission denied")
     );
-  }, []);
+  }, [value, onChange]);
 
-  const displayWeather = customWeather ?? autoWeather;
+  const display = value;
 
-  if (error) {
-    return <div className="text-sm text-red-500">{error}</div>;
-  }
-
-  if (!displayWeather) {
-    return <div className="text-sm text-gray-400">Loading weather...</div>;
-  }
+  if (error) return <div className="text-sm text-red-500">{error}</div>;
+  if (!display) return <div className="text-sm text-gray-400">Loading weather...</div>;
 
   return (
     <div className="rounded-xl border p-4 bg-white shadow-sm">
       {!editing ? (
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-sm text-gray-500">
-              📍 {displayWeather.city}
-            </div>
-
             <div className="mt-1 text-3xl font-semibold">
-              {displayWeather.temp}°C
+              {display.temp}°C
             </div>
-
             <div className="text-sm text-gray-600 capitalize">
-              {displayWeather.condition}
+              {display.condition}
             </div>
-
             <div className="text-sm text-gray-600">
-              🌬 {displayWeather.wind}
+              🌬 {display.wind}
             </div>
           </div>
 
-          <button
-            className="text-sm text-blue-500 hover:underline"
-            onClick={() => setEditing(true)}
-          >
-            Edit
-          </button>
+          <button onClick={() => setEditing(true)}>Edit</button>
         </div>
       ) : (
         <div className="space-y-2">
           <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="City"
-            value={customWeather?.city ?? displayWeather.city}
-            onChange={(e) =>
-              setCustomWeather({
-                ...displayWeather,
-                city: e.target.value,
-              })
-            }
-          />
-
-          <input
+            value={display.temp ?? ""}
             type="number"
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="Temperature (°C)"
-            value={customWeather?.temp ?? displayWeather.temp}
             onChange={(e) =>
-              setCustomWeather({
-                ...displayWeather,
-                temp: Number(e.target.value),
-              })
+              onChange?.({ ...display, temp: Number(e.target.value) })
             }
           />
-
           <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="Weather (e.g. Clear, Cloudy)"
-            value={customWeather?.condition ?? displayWeather.condition}
+            value={display.condition ?? ""}
             onChange={(e) =>
-              setCustomWeather({
-                ...displayWeather,
-                condition: e.target.value,
-              })
+              onChange?.({ ...display, condition: e.target.value })
             }
           />
-
           <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="Wind (e.g. North Wind · 2.1 m/s)"
-            value={customWeather?.wind ?? displayWeather.wind}
+            value={display.wind ?? ""}
             onChange={(e) =>
-              setCustomWeather({
-                ...displayWeather,
-                wind: e.target.value,
-              })
+              onChange?.({ ...display, wind: e.target.value })
             }
           />
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              className="text-sm text-gray-500 hover:underline"
-              onClick={() => {
-                setCustomWeather(null);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </button>
-
-            <button
-              className="text-sm text-blue-500 hover:underline"
-              onClick={() => setEditing(false)}
-            >
-              Save
-            </button>
-          </div>
+          <button onClick={() => setEditing(false)}>Save</button>
         </div>
       )}
     </div>

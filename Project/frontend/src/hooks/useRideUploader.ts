@@ -29,9 +29,7 @@ export function useRideUploader() {
         const { uploadStatus, ...payload } = ride;
 
         if (payload.status === "DRAFT") {
-          console.log("⬆️ saving ride", payload.id);
-          console.log("⬆️ playlod", payload.issues);
-   
+  
           await api.put(`/rides/${payload.id}/save`, payload);
         } else {
           console.log("⬆️ confirming ride", payload.id);

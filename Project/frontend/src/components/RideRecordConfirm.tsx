@@ -19,6 +19,7 @@ import IssueList from "./IssueList";
 import RoadConditionList from "./RoadConditionList";
 import RoadConditionRequiredCard from "./RoadConditionRequiredCard";
 import RoadConditionReportDialog from "./RideReportEditorDialog";
+import type { RideWeather} from "rideWeather";
 
 import type {
   RoadConditionSegment,
@@ -51,7 +52,9 @@ function buildSegmentsFromStreets(ride: Ride): RoadConditionSegment[] {
       startPoint: start,
       endPoint: end,
       condition: "GOOD",
+      notes: "",
       pathCoordinates: ride.path.slice(start, end + 1),
+      
     };
   });
 }
@@ -77,6 +80,7 @@ export default function RideRecordConfirm() {
   }
 
   /* ---------- state (source of truth) ---------- */
+  const [weather, setWeather] = useState<RideWeather | null>(null);
 
   const [issues, setIssues] = useState<Ride["issues"]>(
     ride.issues || []
@@ -124,6 +128,7 @@ export default function RideRecordConfirm() {
       return {
         ...street,
         condition: segment?.condition ?? 'GOOD',
+        comment: segment?.notes ?? null,
       };
     });
     console.log("streets with condition", streetsWithCondition);
@@ -133,6 +138,7 @@ export default function RideRecordConfirm() {
       ...ride,
       issues,
       streets: streetsWithCondition,
+      weather,
       status,
       uploadStatus: "pending",
       confirmedAt: new Date().toISOString(),
@@ -223,7 +229,7 @@ export default function RideRecordConfirm() {
             </CardContent>
           </Card>
 
-          <Weather />
+          <Weather value={weather} onChange={setWeather} />
 
           <IssueList issues={issues} />
 
