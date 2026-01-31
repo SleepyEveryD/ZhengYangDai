@@ -21,7 +21,7 @@ export default function RoadConditionRequiredCard({
               Required: Report Road Conditions
             </p>
             <p className="text-orange-800 text-sm">
-              You must add at least one road condition segment before saving your ride data.
+              Road segment condition defaults to “Good”. Publish locks edits, so click “Save only” if you want to change later.
             </p>
           </div>
         </div>
