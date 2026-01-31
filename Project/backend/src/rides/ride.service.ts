@@ -140,23 +140,20 @@ export class RideService {
    *  - StreetReport: Prisma upsert by userId_rideId_streetId
    *  - StreetIssue: RAW SQL with IssueType mapping
    * ====================================================== */
- async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
+async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
   console.log("payload ", payload);
-    console.log("start transaction");
 
-  const { startedAt, endedAt, routeGeoJson, streets, issues, weather} = payload ?? {};
-    console.log("weather ", weather);
+  const { startedAt, endedAt, routeGeoJson, streets, issues, weather } =
+    payload ?? {};
 
   if (!routeGeoJson) {
-    throw new BadRequestException("routeGeoJsonAttach routeGeoJson is required");
+    throw new BadRequestException("routeGeoJson is required");
   }
   if (!Array.isArray(streets) || streets.length === 0) {
     throw new BadRequestException("streets must be a non-empty array");
   }
 
   return this.prisma.$transaction(async (tx) => {
-      console.log("start transaction");
-      
     /* --------------------------------
      * 0) Guard
      * -------------------------------- */
@@ -228,19 +225,17 @@ export class RideService {
         .map((p: any) => p?.coord)
         .filter(Boolean);
 
-      if (!Array.isArray(coords) || coords.length < 1) {
-        continue;
-      }
+      if (!Array.isArray(coords) || coords.length < 1) continue;
 
       const geometry = {
         type: "LineString",
         coordinates: coords,
       };
 
-      /* ====== ⭐ 核心修复点：streetId 只声明一次 ====== */
+      // ⭐ 关键：streetId 只声明一次
       let streetId: string | undefined;
 
-      /* 2.1 优先用 externalId（最重要） */
+      /* 2.1 优先 externalId（防止合并不同街道） */
       if (externalId) {
         const byExt = await tx.street.findUnique({
           where: { externalId },
@@ -252,7 +247,7 @@ export class RideService {
         }
       }
 
-      /* 2.2 再用地理距离兜底 */
+      /* 2.2 再用距离兜底（保留你同事逻辑） */
       if (!streetId) {
         const near = await tx.$queryRaw<{ id: string }[]>`
           SELECT id
@@ -268,7 +263,7 @@ export class RideService {
                 ST_GeomFromGeoJSON(${JSON.stringify(geometry)}),
                 4326
               )::geography,
-              100
+              1000
             )
           LIMIT 1
         `;
@@ -278,13 +273,13 @@ export class RideService {
         }
       }
 
-      /* 2.3 还没有就新建 Street */
+      /* 2.3 还没有就 insert（你同事原代码，保留） */
       if (!streetId) {
         if (!externalId) {
           throw new BadRequestException("street.externalId is required");
         }
 
-        const [row] = await tx.$queryRaw<{ id: string }[]>`
+        const [streetRow] = await tx.$queryRaw<{ id: string }[]>`
           INSERT INTO "Street" (
             id,
             "externalId",
@@ -316,10 +311,10 @@ export class RideService {
           RETURNING id
         `;
 
-        streetId = row.id;
+        streetId = streetRow.id;
       }
 
-      /* 2.4 StreetReport（一条 street 一条） */
+      /* 2.4 StreetReport（一街一条，不再覆盖） */
       const roadCondition: RoadCondition =
         (street.condition as RoadCondition) ?? "GOOD";
 
@@ -350,7 +345,7 @@ export class RideService {
     }
 
     /* --------------------------------
-     * 3) Issues
+     * 3) StreetIssues
      * -------------------------------- */
     for (const issue of issues ?? []) {
       const point = toGeoJSONPointFromFrontend(issue.location);
@@ -385,14 +380,26 @@ export class RideService {
     }
 
     /* --------------------------------
-     * 4) Debug check
+     * 4) RideWeather（保留你同事的）
      * -------------------------------- */
-    const check = await tx.streetReport.findMany({
-      where: { userId, rideId },
-      select: { streetId: true, roadCondition: true, notes: true },
-    });
-
-    console.log("✅ reports saved:", check);
+    if (weather) {
+      await tx.rideWeather.upsert({
+        where: { rideId },
+        create: {
+          rideId,
+          temp: weather.temp ?? null,
+          condition: weather.condition ?? null,
+          wind: weather.wind ?? null,
+          raw: weather.raw ?? null,
+        },
+        update: {
+          temp: weather.temp ?? null,
+          condition: weather.condition ?? null,
+          wind: weather.wind ?? null,
+          raw: weather.raw ?? null,
+        },
+      });
+    }
 
     return { success: true, rideId };
   });
@@ -454,6 +461,16 @@ export class RideService {
         startedAt: true,
         endedAt: true,
         routeGeoJson: true,
+        weather: {
+          select: {
+            temp: true,
+            condition: true,
+            wind: true,
+            raw: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         issues: {
           orderBy: { createdAt: 'asc' },
           select: {
