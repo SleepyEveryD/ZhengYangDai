@@ -207,8 +207,7 @@ export default function RideRecordConfirm() {
           {/* Stats */}
           <Card>
             <CardContent className="p-4">
-              <h3 className="mb-4">Ride Stats</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <p className="text-gray-500">Distance</p>
                   <p>{ride.distance} km</p>
@@ -221,10 +220,7 @@ export default function RideRecordConfirm() {
                   <p className="text-gray-500">Avg Speed</p>
                   <p>{ride.avgSpeed} km/h</p>
                 </div>
-                <div>
-                  <p className="text-gray-500">Max Speed</p>
-                  <p>{ride.maxSpeed} km/h</p>
-                </div>
+           
               </div>
             </CardContent>
           </Card>
