@@ -140,104 +140,115 @@ export class RideService {
    *  - StreetReport: Prisma upsert by userId_rideId_streetId
    *  - StreetIssue: RAW SQL with IssueType mapping
    * ====================================================== */
-  async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
-    console.log("payload ", payload);
-    console.log("start transaction");
-  
-    const { startedAt, endedAt, routeGeoJson, streets, issues, weather} = payload ?? {};
-    console.log("weather ", weather);
-  
-    if (!routeGeoJson) {
-      throw new BadRequestException("routeGeoJson is required");
-    }
-    if (!Array.isArray(streets) || streets.length === 0) {
-      throw new BadRequestException("streets must be a non-empty array");
-    }
-  
-    return this.prisma.$transaction(async (tx) => {
-      console.log("start transaction");
-      
-      /* --------------------------------
-       * 0) Guard: cannot reconfirm
-       * -------------------------------- */
-      const existing = await tx.ride.findUnique({
-        where: { id: rideId },
-        select: { status: true },
-      });
-      if (existing?.status === "CONFIRMED") {
-        throw new ConflictException("Ride already confirmed");
-      }
-  
-      /* --------------------------------
-       * 1) Insert/Update Ride (RAW SQL)
-       * -------------------------------- */
-      const sAt = startedAt ? new Date(startedAt) : new Date();
-      const eAt = endedAt ? new Date(endedAt) : new Date();
-  
-      await tx.$executeRaw`
-        INSERT INTO "Ride" (
-          id,
-          "userId",
-          "routeGeoJson",
-          "routeGeometry",
-          status,
-          "startedAt",
-          "endedAt"
-        )
-        VALUES (
-          ${rideId},
-          ${userId},
-          ${routeGeoJson}::jsonb,
-          ST_SetSRID(
-            ST_GeomFromGeoJSON(${JSON.stringify(routeGeoJson)}),
-            4326
-          )::geography,
-          'CONFIRMED'::"RideStatus",
-          ${sAt},
-          ${eAt}
-        )
-        ON CONFLICT (id) DO UPDATE
-        SET
-          "routeGeoJson"  = EXCLUDED."routeGeoJson",
-          "routeGeometry" = EXCLUDED."routeGeometry",
-          "startedAt"     = EXCLUDED."startedAt",
-          "endedAt"       = EXCLUDED."endedAt",
-          status          = 'CONFIRMED'::"RideStatus"
-        WHERE "Ride".status = 'DRAFT'::"RideStatus"
-      `;
-  
-      /* --------------------------------
-       * 2) Streets & StreetReports
-       * -------------------------------- */
-      for (const street of streets) {
-        if (!street) continue;
-        console.log("🧩 incoming street:", {
-  name: street?.name,
-  condition: street?.condition,
-  comment: street?.comment,
-});
+async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
+  console.log("payload ", payload);
 
-  
-        const externalId: string | undefined = street.externalId;
-        const name: string | null = street.name ?? null;
-        const city: string | null = street.city ?? null;
-        const country: string | null = street.country ?? null;
-  
-        const coords = (street.positions ?? [])
-          .map((p: any) => p?.coord)
-          .filter(Boolean);
-  
-        // ✅ 你的前端 positions 可能只有 1 个点；<2 会把它全跳过
-        if (!Array.isArray(coords) || coords.length < 1) {
-          continue;
+  const { startedAt, endedAt, routeGeoJson, streets, issues, weather } =
+    payload ?? {};
+
+  if (!routeGeoJson) {
+    throw new BadRequestException("routeGeoJson is required");
+  }
+  if (!Array.isArray(streets) || streets.length === 0) {
+    throw new BadRequestException("streets must be a non-empty array");
+  }
+
+  return this.prisma.$transaction(async (tx) => {
+    /* --------------------------------
+     * 0) Guard
+     * -------------------------------- */
+    const existing = await tx.ride.findUnique({
+      where: { id: rideId },
+      select: { status: true },
+    });
+
+    if (existing?.status === "CONFIRMED") {
+      throw new ConflictException("Ride already confirmed");
+    }
+
+    /* --------------------------------
+     * 1) Ride
+     * -------------------------------- */
+    const sAt = startedAt ? new Date(startedAt) : new Date();
+    const eAt = endedAt ? new Date(endedAt) : new Date();
+
+    await tx.$executeRaw`
+      INSERT INTO "Ride" (
+        id,
+        "userId",
+        "routeGeoJson",
+        "routeGeometry",
+        status,
+        "startedAt",
+        "endedAt"
+      )
+      VALUES (
+        ${rideId},
+        ${userId},
+        ${routeGeoJson}::jsonb,
+        ST_SetSRID(
+          ST_GeomFromGeoJSON(${JSON.stringify(routeGeoJson)}),
+          4326
+        )::geography,
+        'CONFIRMED'::"RideStatus",
+        ${sAt},
+        ${eAt}
+      )
+      ON CONFLICT (id) DO UPDATE
+      SET
+        "routeGeoJson"  = EXCLUDED."routeGeoJson",
+        "routeGeometry" = EXCLUDED."routeGeometry",
+        "startedAt"     = EXCLUDED."startedAt",
+        "endedAt"       = EXCLUDED."endedAt",
+        status          = 'CONFIRMED'::"RideStatus"
+      WHERE "Ride".status = 'DRAFT'::"RideStatus"
+    `;
+
+    /* --------------------------------
+     * 2) Streets & StreetReports
+     * -------------------------------- */
+    for (const street of streets) {
+      if (!street) continue;
+
+      console.log("🧩 incoming street:", {
+        name: street?.name,
+        condition: street?.condition,
+        comment: street?.comment,
+      });
+
+      const externalId: string | undefined = street.externalId;
+      const name: string | null = street.name ?? null;
+      const city: string | null = street.city ?? null;
+      const country: string | null = street.country ?? null;
+
+      const coords = (street.positions ?? [])
+        .map((p: any) => p?.coord)
+        .filter(Boolean);
+
+      if (!Array.isArray(coords) || coords.length < 1) continue;
+
+      const geometry = {
+        type: "LineString",
+        coordinates: coords,
+      };
+
+      // ⭐ 关键：streetId 只声明一次
+      let streetId: string | undefined;
+
+      /* 2.1 优先 externalId（防止合并不同街道） */
+      if (externalId) {
+        const byExt = await tx.street.findUnique({
+          where: { externalId },
+          select: { id: true },
+        });
+
+        if (byExt) {
+          streetId = byExt.id;
         }
-  
-        const geometry = {
-          type: "LineString",
-          coordinates: coords,
-        };
-  
-        // 2.1 先按 “同名/同城/同国 + 1km 内” 找现有 Street
+      }
+
+      /* 2.2 再用距离兜底（保留你同事逻辑） */
+      if (!streetId) {
         const near = await tx.$queryRaw<{ id: string }[]>`
           SELECT id
           FROM "Street"
@@ -256,148 +267,144 @@ export class RideService {
             )
           LIMIT 1
         `;
-  
-        let streetId: string;
-  
+
         if (near.length > 0) {
           streetId = near[0].id;
-        } else {
-          // 2.2 找不到 nearby -> 用 externalId upsert
-          if (!externalId) {
-            // ✅ 推荐：直接拒绝，避免污染 Street 表
-            throw new BadRequestException("street.externalId is required");
-  
-            // 如果你硬要 fallback，用这段（不推荐）：
-            // const fallback = `fallback-${Date.now()}-${Math.random()}`;
-            // street.externalId = fallback;
-          }
-  
-          const ext = street.externalId;
-  
-          const [streetRow] = await tx.$queryRaw<{ id: string }[]>`
-            INSERT INTO "Street" (
-              id,
-              "externalId",
-              name,
-              city,
-              country,
-              "geometryJson",
-              geometry
-            )
-            VALUES (
-              gen_random_uuid(),
-              ${ext},
-              ${name},
-              ${city},
-              ${country},
-              ${geometry}::jsonb,
-              ST_SetSRID(
-                ST_GeomFromGeoJSON(${JSON.stringify(geometry)}),
-                4326
-              )::geography
-            )
-            ON CONFLICT ("externalId") DO UPDATE
-            SET
-              name = EXCLUDED.name,
-              city = EXCLUDED.city,
-              country = EXCLUDED.country,
-              "geometryJson" = COALESCE("Street"."geometryJson", EXCLUDED."geometryJson"),
-              geometry       = COALESCE("Street".geometry, EXCLUDED.geometry)
-            RETURNING id
-          `;
-          streetId = streetRow.id;
         }
-  
-        // 2.3 StreetReport：直接用前端 street.condition
-        const roadCondition: RoadCondition =
-          (street.condition as RoadCondition) ?? "GOOD";
-  
-        const existingReport = await tx.streetReport.findFirst({
-          where: { userId, rideId, streetId },
-          select: { id: true },
-        });
-  
-        if (existingReport) {
-          await tx.streetReport.update({
-            where: { id: existingReport.id },
-            data: { roadCondition,
-              notes: street.comment ?? null,
-             },
-          });
-        } else {
-          //console.log(" streetReport creation: ", userId);
-          //console.log(" streetReport creation: ", rideId);
-          //console.log(" streetReport creation: ", streetId);
-          //console.log(" streetReport creation: ", roadCondition);
-          await tx.streetReport.create({
-            data: { userId, rideId, streetId, roadCondition,notes: street.comment ?? null, },
-            
-          });
-        }
-  
-        // ✅ upsert 结束后，DB trigger 会自动刷新 StreetAggregation
       }
-  
-      /* --------------------------------
-       * 3) StreetIssues (RAW SQL + mapping)
-       * -------------------------------- */
-      for (const issue of issues ?? []) {
-        const point = toGeoJSONPointFromFrontend(issue.location);
-        if (!point) continue;
-  
-        const geojsonStr = JSON.stringify(point);
-        const mapped = this.mapFrontendIssueType(issue.type as FrontIssueType);
-  
-        await tx.$executeRaw`
-          INSERT INTO "StreetIssue" (
+
+      /* 2.3 还没有就 insert（你同事原代码，保留） */
+      if (!streetId) {
+        if (!externalId) {
+          throw new BadRequestException("street.externalId is required");
+        }
+
+        const [streetRow] = await tx.$queryRaw<{ id: string }[]>`
+          INSERT INTO "Street" (
             id,
-            "userId",
-            "rideId",
-            "issueType",
-            "locationJson",
-            location,
-            notes
+            "externalId",
+            name,
+            city,
+            country,
+            "geometryJson",
+            geometry
           )
           VALUES (
             gen_random_uuid(),
-            ${userId},
-            ${rideId},
-            ${mapped}::"IssueType",
-            ${geojsonStr}::jsonb,
+            ${externalId},
+            ${name},
+            ${city},
+            ${country},
+            ${geometry}::jsonb,
             ST_SetSRID(
-              ST_GeomFromGeoJSON(${geojsonStr}),
+              ST_GeomFromGeoJSON(${JSON.stringify(geometry)}),
               4326
-            )::geography,
-            ${issue.description ?? issue.notes ?? null}
+            )::geography
           )
+          ON CONFLICT ("externalId") DO UPDATE
+          SET
+            name = EXCLUDED.name,
+            city = EXCLUDED.city,
+            country = EXCLUDED.country,
+            "geometryJson" = COALESCE("Street"."geometryJson", EXCLUDED."geometryJson"),
+            geometry       = COALESCE("Street".geometry, EXCLUDED.geometry)
+          RETURNING id
         `;
+
+        streetId = streetRow.id;
       }
-      /* --------------------------------
-       * 4)  RideWeather (TEMP)
-       * -------------------------------- */
-   
-      if (weather) {
-        await tx.rideWeather.upsert({
-          where: { rideId },
-          create: {
-            rideId,
-            temp: weather.temp ?? null,
-            condition: weather.condition ?? null,
-            wind: weather.wind ?? null,
-            raw: weather.raw ?? null,
+
+      /* 2.4 StreetReport（一街一条，不再覆盖） */
+      const roadCondition: RoadCondition =
+        (street.condition as RoadCondition) ?? "GOOD";
+
+      const existingReport = await tx.streetReport.findFirst({
+        where: { userId, rideId, streetId },
+        select: { id: true },
+      });
+
+      if (existingReport) {
+        await tx.streetReport.update({
+          where: { id: existingReport.id },
+          data: {
+            roadCondition,
+            notes: street.comment ?? null,
           },
-          update: {
-            temp: weather.temp ?? null,
-            condition: weather.condition ?? null,
-            wind: weather.wind ?? null,
-            raw: weather.raw ?? null,
+        });
+      } else {
+        await tx.streetReport.create({
+          data: {
+            userId,
+            rideId,
+            streetId,
+            roadCondition,
+            notes: street.comment ?? null,
           },
         });
       }
+    }
 
-      return { success: true, rideId };
-    });
-  }
+    /* --------------------------------
+     * 3) StreetIssues
+     * -------------------------------- */
+    for (const issue of issues ?? []) {
+      const point = toGeoJSONPointFromFrontend(issue.location);
+      if (!point) continue;
+
+      const geojsonStr = JSON.stringify(point);
+      const mapped = this.mapFrontendIssueType(issue.type as FrontIssueType);
+
+      await tx.$executeRaw`
+        INSERT INTO "StreetIssue" (
+          id,
+          "userId",
+          "rideId",
+          "issueType",
+          "locationJson",
+          location,
+          notes
+        )
+        VALUES (
+          gen_random_uuid(),
+          ${userId},
+          ${rideId},
+          ${mapped}::"IssueType",
+          ${geojsonStr}::jsonb,
+          ST_SetSRID(
+            ST_GeomFromGeoJSON(${geojsonStr}),
+            4326
+          )::geography,
+          ${issue.description ?? issue.notes ?? null}
+        )
+      `;
+    }
+
+    /* --------------------------------
+     * 4) RideWeather（保留你同事的）
+     * -------------------------------- */
+    if (weather) {
+      await tx.rideWeather.upsert({
+        where: { rideId },
+        create: {
+          rideId,
+          temp: weather.temp ?? null,
+          condition: weather.condition ?? null,
+          wind: weather.wind ?? null,
+          raw: weather.raw ?? null,
+        },
+        update: {
+          temp: weather.temp ?? null,
+          condition: weather.condition ?? null,
+          wind: weather.wind ?? null,
+          raw: weather.raw ?? null,
+        },
+      });
+    }
+
+    return { success: true, rideId };
+  });
+}
+
   
 
   /* ======================================================

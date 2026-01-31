@@ -121,4 +121,3 @@ model RideWeather {
 
   ride      Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
 }
-
