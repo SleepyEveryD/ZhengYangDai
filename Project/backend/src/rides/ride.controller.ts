@@ -24,39 +24,55 @@ export class RideController {
    * PUT /rides/:rideId/save
    * 保存 Draft Ride（只保存路线）
    */
-  @UseGuards(SupabaseAuthGuard)
-  @Put(':rideId/save')
-  async saveDraftRide(
-    @Param('rideId') rideId: string,
-    @Body() body: any,
-    @Req() req: any,
-  ) {
-    const userId = req.user.id;
-
-    // ✅ 必须是 DRAFT
-    if (body.status !== 'DRAFT') {
-      throw new BadRequestException(
-        'Ride status must be DRAFT when saving draft',
-      );
-    }
-
-    // ✅ 防止前端 rideId 不一致
-    if (body.id && body.id !== rideId) {
-      throw new BadRequestException('Ride ID mismatch');
-    }
-
-    // ✅ 必须有 routeGeoJson
-    if (!body.routeGeoJson) {
-      throw new BadRequestException('routeGeoJson is required');
-    }
-
-    return this.rideService.saveDraftRide(
-      rideId,
-      userId,
-      body.routeGeoJson,
-    );
-  }
-
+   @UseGuards(SupabaseAuthGuard)
+   @Put(':rideId/save')
+   async saveDraftRide(
+     @Param('rideId') rideId: string,
+     @Body() body: any,
+     @Req() req: any,
+   ) {
+     const userId = req.user.id;
+   
+     /* --------------------------------
+      * 0) 兼容层：统一 payload
+      * -------------------------------- */
+   
+     // 🔥 如果前端还没升级，没有 payload，就把 body 本身当 payload
+     const payload = body.payload ?? body;
+   
+     /* --------------------------------
+      * 1) 基本校验
+      * -------------------------------- */
+   
+     // ✅ 必须是 DRAFT
+     if (body.status !== 'DRAFT') {
+       throw new BadRequestException(
+         'Ride status must be DRAFT when saving draft',
+       );
+     }
+   
+     // ✅ 防止前端 rideId 不一致
+     if (body.id && body.id !== rideId) {
+       throw new BadRequestException('Ride ID mismatch');
+     }
+   
+     // ✅ payload 内必须有 routeGeoJson
+     if (!payload.routeGeoJson) {
+       throw new BadRequestException('routeGeoJson is required');
+     }
+   
+     /* --------------------------------
+      * 2) 调用 service（统一 payload）
+      * -------------------------------- */
+   
+     return this.rideService.saveDraftRide({
+       rideId,
+       userId,
+       payload, // 👈 可能来自 body.payload，也可能是 body 本身
+     });
+   }
+   
+   
   /**
    * POST /rides/:rideId/confirm
    * Confirm Ride（DRAFT → CONFIRMED）
