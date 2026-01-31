@@ -61,7 +61,12 @@ type Props = {
     issues: Ride["issues"];
     segments: RoadConditionSegment[];
   }) => void;
+    onSave: (data: {
+    issues: Ride["issues"];
+    segments: RoadConditionSegment[];
+  }) => void;
   defaultTab?: "issues" | "conditions";
+  
 };
 
 /* =========================
@@ -76,6 +81,7 @@ export default function
   issues,
   segments,
   onChange,
+  onSave, 
   defaultTab = "issues",
 }: Props) {
   const [tab, setTab] = useState<"issues" | "conditions">(defaultTab);
@@ -508,13 +514,17 @@ export default function
           <Button
             variant="outline"
             className="flex-1"
+            
             onClick={() => onOpenChange(false)}
           >
             Close
           </Button>
           <Button
             className="flex-1 bg-green-600 hover:bg-green-700"
-            onClick={() => onOpenChange(false)}
+
+            onClick={() => 
+            {onSave({ issues, segments });
+              onOpenChange(false);}}
           >
             <CheckCircleIcon className="w-5 h-5 mr-2" />
             Save Reports
