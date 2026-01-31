@@ -6,6 +6,6 @@ export interface ProfileSummary {
 }
 
 export async function getProfileSummary(): Promise<ProfileSummary> {
-  const res = await api.get<ProfileSummary>("/profile");
+  const res = await api.get<ProfileSummary>("/api/profile");
   return res.data;
 }

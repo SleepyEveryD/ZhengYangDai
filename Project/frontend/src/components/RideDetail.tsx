@@ -42,6 +42,8 @@ export default function RideDetail() {
   const [resolvedStreets, setResolvedStreets] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [weather, setWeather] = useState<RideWeather | null>(null);
+  const [hasSavedChanges, setHasSavedChanges] = useState(false);
+
 
 
   /* ---------------- utils ---------------- */
@@ -137,6 +139,7 @@ export default function RideDetail() {
       mounted = false;
     };
   }, [rideId]);
+
   // ✅ 当 ride 加载完成后，同步 weather（只做一次）
   useEffect(() => {
     if (ride?.weather) {
@@ -144,12 +147,14 @@ export default function RideDetail() {
     }
   }, [ride]);
 
+
+
   /* ---------------- handlers ---------------- */
 
   const handleExitEdit = () => {
     setIsEditing(false);
     setShowEditor(false);
-
+    setHasSavedChanges(false);
     if (!ride) return;
 
     setIssues(ride.issues);
@@ -274,11 +279,19 @@ export default function RideDetail() {
       </div>
     );
   }
-
   if (!ride) {
-    navigate("/rides");
-    return null;
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-500">Ride not found or no access.</p>
+        <Button onClick={() => navigate("/rides")}>
+          Back to rides
+        </Button>
+      </div>
+    );
   }
+
+
+  
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -297,6 +310,7 @@ export default function RideDetail() {
             onClick={() => {
               setIsEditing(true);
               setShowEditor(true);
+              setHasSavedChanges(false);
             }}
           >
             Edit
@@ -311,6 +325,7 @@ export default function RideDetail() {
             <Button
               size="sm"
               className="bg-green-600 hover:bg-green-700"
+              disabled={!hasSavedChanges}
               onClick={handleConfirmEdit}
             >
               Confirm
@@ -359,23 +374,37 @@ export default function RideDetail() {
           )}
 
           <IssueList issues={issues} />
-          <RoadConditionList segments={segments} />
+          {(ride.status === "CONFIRMED" || hasSavedChanges) && (
+          <RoadConditionList segments={segments} /> )
+          }
+
+
         </div>
       </div>
 
       {ride.status === "DRAFT" && (
         <RideReportEditorDialog
-          open={showEditor}
-          onOpenChange={setShowEditor}
-          ride={ride}
-          issues={issues}
-          segments={segments}
-          defaultTab="issues"
-          onChange={({ issues, segments }) => {
-            setIssues(issues);
-            setSegments(segments);
-          }}
-        />
+  open={showEditor}
+  onOpenChange={setShowEditor}
+  ride={ride}
+  issues={issues}
+  segments={segments}
+  defaultTab="issues"
+
+  onChange={({ issues, segments }) => {
+    // 编辑中（草稿）
+    setIssues(issues);
+    setSegments(segments);
+  }}
+
+  onSave={({ issues, segments }) => {
+    // ⭐ 真正保存
+    setIssues(issues);
+    setSegments(segments);
+    setHasSavedChanges(true); // 让 Confirm 按钮亮
+  }}
+/>
+
       )}
     </div>
   );

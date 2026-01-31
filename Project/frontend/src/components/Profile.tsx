@@ -130,7 +130,7 @@ export default function Profile() {
                 <p className="text-white mb-1 font-semibold">
                   {totalReports}
                 </p>
-                <p className="text-white/80 text-sm">reports</p>
+                <p className="text-white/80 text-sm">confirmed reports</p>
               </div>
             </div>
           )}
