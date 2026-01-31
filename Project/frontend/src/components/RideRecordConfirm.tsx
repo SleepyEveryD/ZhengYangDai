@@ -280,6 +280,12 @@ export default function RideRecordConfirm() {
           setIssues(issues);
           setRoadConditionSegments(segments);
         }}
+        onSave={({ issues, segments }) => {
+    // ⭐ 真正“保存 road condition 报告”
+    setIssues(issues);
+    setRoadConditionSegments(segments);
+    setConditionsConfirmed(true);
+  }}
       />
     </div>
   );
