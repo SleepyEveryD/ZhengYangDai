@@ -355,11 +355,10 @@ export default function RideDetail() {
           </div>
 
           <Card>
-            <CardContent className="p-4 grid grid-cols-2 gap-4">
+            <CardContent className="p-4 grid grid-cols-3 gap-4">
               <Stat label="Distance" value={`${ride.distance} km`} />
               <Stat label="Duration" value={formatTime(ride.duration)} />
               <Stat label="Avg Speed" value={`${ride.avgSpeed} km/h`} />
-              <Stat label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
           <WeatherWidget

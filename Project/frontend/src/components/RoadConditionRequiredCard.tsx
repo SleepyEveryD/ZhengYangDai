@@ -18,10 +18,10 @@ export default function RoadConditionRequiredCard({
           <AlertCircleIcon className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-orange-900 font-medium mb-1">
-              Required: Report Road Conditions
+              Required: Report Road Conditions and Issues
             </p>
             <p className="text-orange-800 text-sm">
-              Road segment condition defaults to “Good”. Publish locks edits, so click “Save only” if you want to change later.
+              Your reports are critical to other users, let's build a perfect cycling world.
             </p>
           </div>
         </div>
