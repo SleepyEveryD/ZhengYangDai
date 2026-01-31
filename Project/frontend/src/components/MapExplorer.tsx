@@ -18,7 +18,6 @@ type MapExplorerProps = {
 
 export default function MapExplorer({ user }: MapExplorerProps) {
   const navigate = useNavigate();
-  const [showLegend, setShowLegend] = useState(true);
 
   // 当前定位（[lat, lng]）
   const [currentLocation, setCurrentLocation] = useState<[number, number] | undefined>(undefined);
@@ -118,39 +117,6 @@ export default function MapExplorer({ user }: MapExplorerProps) {
           highlightedPath={highlightedPath}
           issues={issues}
         />
-
-        {/* Legend */}
-        {showLegend && (
-          <div className="absolute top-24 right-4 bg-white rounded-lg shadow-lg p-4 space-y-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-700">Road Legend</span>
-              <button
-                onClick={() => setShowLegend(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-green-500 rounded" />
-                <span className="text-gray-600">Excellent</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-blue-500 rounded" />
-                <span className="text-gray-600">Good</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-yellow-500 rounded" />
-                <span className="text-gray-600">Fair</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-red-500 rounded" />
-                <span className="text-gray-600">Needs Repair</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom Action Bar */}
