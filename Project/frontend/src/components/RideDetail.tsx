@@ -41,6 +41,8 @@ export default function RideDetail() {
   const [segments, setSegments] = useState<RoadConditionSegment[]>([]);
   const [resolvedStreets, setResolvedStreets] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [weather, setWeather] = useState<RideWeather | null>(null);
+
 
   /* ---------------- utils ---------------- */
 
@@ -90,9 +92,6 @@ export default function RideDetail() {
             ))
           );
           console.log(" this ride is confirmed", adapted.streets);
-          
-
-          
 
           return;
         }
@@ -138,6 +137,12 @@ export default function RideDetail() {
       mounted = false;
     };
   }, [rideId]);
+  // ✅ 当 ride 加载完成后，同步 weather（只做一次）
+  useEffect(() => {
+    if (ride?.weather) {
+      setWeather(ride.weather);
+    }
+  }, [ride]);
 
   /* ---------------- handlers ---------------- */
 
@@ -342,7 +347,9 @@ export default function RideDetail() {
               <Stat label="Max Speed" value={`${ride.maxSpeed} km/h`} />
             </CardContent>
           </Card>
-           <WeatherWidget />
+          <WeatherWidget
+            value={weather}
+          />
 
           {isEditing && (
             <RoadConditionRequiredCard
