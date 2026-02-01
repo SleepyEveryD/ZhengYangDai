@@ -232,10 +232,10 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
         coordinates: coords,
       };
 
-      // ⭐ 关键：streetId 只声明一次
+      // key：streetId only once we find or create it
       let streetId: string | undefined;
 
-      /* 2.1 优先 externalId（防止合并不同街道） */
+      
       if (externalId) {
         const byExt = await tx.street.findUnique({
           where: { externalId },
@@ -247,7 +247,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
         }
       }
 
-      /* 2.2 再用距离兜底（保留你同事逻辑） */
+      
       if (!streetId) {
         const near = await tx.$queryRaw<{ id: string }[]>`
           SELECT id
@@ -273,7 +273,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
         }
       }
 
-      /* 2.3 还没有就 insert（你同事原代码，保留） */
+    
       if (!streetId) {
         if (!externalId) {
           throw new BadRequestException("street.externalId is required");
@@ -314,7 +314,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
         streetId = streetRow.id;
       }
 
-      /* 2.4 StreetReport（一街一条，不再覆盖） */
+     
       const roadCondition: RoadCondition =
         (street.condition as RoadCondition) ?? "GOOD";
 
@@ -344,9 +344,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
       }
     }
 
-    /* --------------------------------
-     * 3) StreetIssues
-     * -------------------------------- */
+  
     for (const issue of issues ?? []) {
       const point = toGeoJSONPointFromFrontend(issue.location);
       if (!point) continue;
@@ -379,9 +377,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
       `;
     }
 
-    /* --------------------------------
-     * 4) RideWeather（保留你同事的）
-     * -------------------------------- */
+ 
     if (weather) {
       await tx.rideWeather.upsert({
         where: { rideId },
@@ -507,7 +503,7 @@ async confirmRide({ rideId, userId, payload }: ConfirmRideInput) {
     if (s === 'gravel') return 'GRAVEL';
     if (s === 'construction') return 'CONSTRUCTION';
 
-    // 前端这些 Prisma 没有对应 enum，必须归到 OTHER（否则 500）
+    
     if (s === 'crack') return 'OTHER';
     if (s === 'obstacle') return 'OTHER';
 

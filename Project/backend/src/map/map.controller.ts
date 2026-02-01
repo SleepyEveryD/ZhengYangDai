@@ -8,12 +8,12 @@ type FrontendCondition = 'excellent' | 'good' | 'fair' | 'needRepair';
 
 const prisma = new PrismaClient();
 
-// ====== 采样与匹配参数 ======
+
 const SAMPLE_EVERY_N_POINTS = 10;
 const MAX_SAMPLES = 120;
 const STREET_MATCH_RADIUS_M = 60;
 
-// ====== 路况模型参数 ======
+
 const ROAD_FACTOR_K = 1.5;
 
 const CONDITION_DELTA: Record<RoadCondition, number> = {
@@ -31,9 +31,7 @@ const SCORE_THRESHOLDS = {
 
 @Controller('map')
 export class MapController {
-  // =========================
-  // 路线分析
-  // =========================
+  //analyze
   @Post('analyze')
   async analyze(@Body() body: any) {
     const { origin, destination, travelMode } = body;
@@ -128,9 +126,7 @@ export class MapController {
     return { routes: enriched };
   }
 
-  // =========================
-  // ✅ 只返回“用户评论内容（notes）”
-  // =========================
+ //street-reports to get reports for streets
   @Post('street-reports')
   async getStreetReports(@Body() body: { streetIds: string[] }) {
     const { streetIds } = body;
@@ -161,9 +157,7 @@ export class MapController {
     };
   }
 
-  // =========================
-  // 内部工具函数
-  // =========================
+ 
   private async getRouteRoadDelta(path: [number, number][]) {
     const coverage = await this.resolveStreetCoverageForRoute(path);
     const streetIds = coverage.map((c) => c.streetId);

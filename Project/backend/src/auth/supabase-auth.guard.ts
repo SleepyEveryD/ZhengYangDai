@@ -23,22 +23,22 @@ import {
     }
   
     async canActivate(context: ExecutionContext): Promise<boolean> {
-      // ✅ 1. req 在这里
+      // 1. req 
       const req = context.switchToHttp().getRequest<Request>();
   
-      // ✅ 2. 先拿 header
+      //  header
       const authHeader = req.headers.authorization;
       if (!authHeader) {
         throw new UnauthorizedException('Missing Authorization header');
       }
   
-      // ✅ 3. 再解析 token
+      //  token
       const [type, token] = authHeader.split(' ');
       if (type !== 'Bearer' || !token) {
         throw new UnauthorizedException('Invalid Authorization format');
       }
   
-      // ✅ 4. 用 token
+      //  token
       const result = await this.supabase.auth.getUser(token);
   
       const user = result.data?.user;
@@ -51,7 +51,7 @@ import {
         throw new UnauthorizedException('Invalid or expired token');
       }
   
-      // ✅ 5. req 还在作用域里
+    
       (req as any).user = user;
   
       return true;

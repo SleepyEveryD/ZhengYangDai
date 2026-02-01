@@ -26,7 +26,7 @@
   
       return {
         type: 'Point',
-        coordinates: [lng, lat], // ⚠️ GeoJSON 坐标顺序
+        coordinates: [lng, lat], // ⚠️ GeoJSON is [lng, lat]
       };
     }
   
