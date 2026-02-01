@@ -17,7 +17,6 @@ import { getMyRides } from "../hooks/rides.api";
 import { adaptRideFromApi } from "../adapters/ride.adapter";
 import { getProfileSummary } from "../hooks/profile.api";
 
-// ✅ 方案B：列表拿到 id 后并发拉详情
 import { getRideDetail } from "../hooks/ride-detail.api";
 import { adaptRideDetailFromApi } from "../adapters/ride-detail.adapter";
 
@@ -42,7 +41,7 @@ export default function RideHistory() {
     return `${m}:${String(s).padStart(2, "0")}`;
   };
 
-  // ✅ 显示 startedAt 的日期（不再 Today/Yesterday）
+  // ✅ Display date based on startedAt (no longer Today / Yesterday)
   const formatDate = (value: Date | string) => {
     const date = value instanceof Date ? value : new Date(value);
     return date.toLocaleDateString("en-US", {
@@ -52,7 +51,7 @@ export default function RideHistory() {
     });
   };
 
-  /* ---------------- fetch rides list + details (方案B) ---------------- */
+  /* ---------------- fetch rides list + details ---------------- */
 
   useEffect(() => {
     let mounted = true;
@@ -65,20 +64,21 @@ export default function RideHistory() {
         const res = await getMyRides(1, 20);
         if (!mounted) return;
 
-        // 并发拉详情（单条失败不影响其他）
+        // Fetch details in parallel (failure of one does not affect others)
         const settled = await Promise.allSettled(
           res.items.map(async (it) => {
             const detail = await getRideDetail(it.id);
             const ride = adaptRideDetailFromApi(detail.data);
 
-            // 保险：列表接口的 status 更可信就覆盖一下
+            // Safety: list API status is more reliable, override if needed
             return { ...ride, status: it.status };
           })
         );
 
         if (!mounted) return;
 
-        // 成功的用详情；失败的回退到 list item（至少能显示 duration / issues）
+        // Use detail data when successful; fallback to list item on failure
+        // (at least duration / issues can still be displayed)
         const merged: Ride[] = settled.map((r, idx) => {
           if (r.status === "fulfilled") return r.value;
 
@@ -90,7 +90,9 @@ export default function RideHistory() {
       } catch (err) {
         console.error("[RIDES_FETCH_ERROR]", err);
       } finally {
-        if (mounted) setIsLoading(false); // ✅ 所有 rides（含详情）加载完才关
+        if (mounted) setIsLoading(false);         
+        // ✅ Only stop loading after all rides (including details) are loaded
+
       }
     })();
 
@@ -185,7 +187,7 @@ export default function RideHistory() {
 
         {/* Ride List */}
         {isLoading ? (
-          // ✅ Skeleton cards (加载完自动消失)
+          // ✅ Skeleton cards (automatically removed after loading)
           <div className="p-4 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
@@ -216,7 +218,7 @@ export default function RideHistory() {
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-600">
-                          {/* ✅ 用 startedAt 显示日期 */}
+                          {/* ✅ Use startedAt to display date */}
                           {formatDate((ride as any).startedAt ?? (ride as any).date ?? "")}
                         </span>
                       </div>

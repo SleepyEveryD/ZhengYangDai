@@ -13,7 +13,7 @@ export function initAuthListener() {
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
     console.log('[auth]', event, session?.user?.id)
 
-    // ✅ 关键：任何 auth 变化都同步更新 token
+    // update token when auth changes
     setAccessToken(session?.access_token ?? null)
     markAuthReady();
 

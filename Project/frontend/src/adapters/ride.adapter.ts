@@ -3,7 +3,7 @@ import type { Ride } from "../types/ride";
 import type { RideListItem } from "../hooks/rides.api";
 
 /**
- * 安全转 number
+ * safely convert number
  */
 const num = (v: unknown, fallback = 0) => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -15,17 +15,19 @@ const num = (v: unknown, fallback = 0) => {
 };
 
 /**
- * 统一把 list item 适配成前端 Ride（列表展示用）
- * 约定：
- * - distance: km
- * - duration: 秒
- * - avgSpeed/maxSpeed: km/h
+ * Normalize list items into frontend Ride objects (for list display)
+ *
+ * Conventions:
+ * - distance: kilometers (km)
+ * - duration: seconds
+ * - avgSpeed / maxSpeed: km/h
  */
+
 export function adaptRideFromApi(item: RideListItem): Ride {
   const started = new Date(item.startedAt);
   const ended = item.endedAt ? new Date(item.endedAt) : null;
 
-  // ✅ duration：优先用后端 durationSec；没有就用 started/ended 算
+  // ✅ duration: prefer backend durationSec; fallback to started/ended calculation
   const duration =
     (item as any).durationSec != null
       ? Math.max(0, Math.floor(num((item as any).durationSec)))
@@ -33,11 +35,11 @@ export function adaptRideFromApi(item: RideListItem): Ride {
       ? Math.max(0, Math.floor((ended.getTime() - started.getTime()) / 1000))
       : 0;
 
-  // ✅ summary：来自 list API（如果后端还没给，就会兜底为 0）
+  // ✅ summary: from list API (fallback to 0 if backend has not provided it yet)
   const distanceKm =
     (item as any).distanceKm != null
       ? num((item as any).distanceKm)
-      : // 兼容一些可能的字段名
+      : // compatibility with possible alternative field names
       (item as any).distance != null
       ? num((item as any).distance)
       : 0;
@@ -56,7 +58,7 @@ export function adaptRideFromApi(item: RideListItem): Ride {
       ? num((item as any).maxSpeed)
       : 0;
 
-  // ✅ issues：列表页通常不需要精确坐标，保持最小字段（避免类型冲突）
+  // ✅ issues: list view does not need precise coordinates; keep minimal fields (avoid type conflicts)
   const issues =
     item.issues?.map((issue: any) => ({
       id: String(issue.id),
@@ -69,8 +71,8 @@ export function adaptRideFromApi(item: RideListItem): Ride {
     id: String(item.id),
     status: item.status,
 
-    // 你列表页在用 ride.date 展示 “Today/Yesterday”
-    // 用 startedAt 最稳定；如果你想按结束时间显示就改成 item.endedAt ?? item.startedAt
+    // The list page uses ride.date to display "Today / Yesterday"
+    // startedAt is the most stable choice; switch to item.endedAt ?? item.startedAt if you prefer end time
     date: item.startedAt,
 
     startedAt: started,
@@ -81,7 +83,7 @@ export function adaptRideFromApi(item: RideListItem): Ride {
     avgSpeed: avgSpeedKmh,
     maxSpeed: maxSpeedKmh,
 
-    // 列表不需要 path，给空
+    // List view does not require path data; use empty array
     path: [],
 
     issues,

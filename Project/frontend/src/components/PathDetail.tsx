@@ -76,10 +76,10 @@ export default function PathDetail() {
     }
   };
 
-console.log("Route streetIds:", safeRoute.streetIds);
+//console.log("Route streetIds:", safeRoute.streetIds);
 useEffect(() => {
   if (!safeRoute.streetIds || safeRoute.streetIds.length === 0) {
-    console.log("No streetIds, skip fetching reports");
+    //console.log("No streetIds, skip fetching reports");
     return;
   }
 
@@ -96,11 +96,11 @@ useEffect(() => {
       });
 
       const data = await res.json();
-      console.log("Street reports from backend:", data.reports);
+      //console.log("Street reports from backend:", data.reports);
 
       setStreetReports(data.reports ?? []);
     } catch (err) {
-      console.error("Failed to fetch street reports", err);
+      //console.error("Failed to fetch street reports", err);
     }
   };
 
@@ -292,18 +292,18 @@ useEffect(() => {
 
     const ride = {
       id: crypto.randomUUID(),
-      userId: user?.id ?? null,   // ✅ 未登录也能用
+      userId: user?.id ?? null,   //able to use without login
       startedAt: now,
       endedAt: null,
       routeGeoJson: null,
     };
 
-    console.log("SelectRoute>> start ride at", now);
+    //console.log("SelectRoute>> start ride at", now);
 
-    // ① 保存 currentRide
+    // ① save currentRide
     saveRideLocal(ride);
 
-    // ② 带 route 跳转到 recording
+    // ② jump to recording
     navigate("/ride/recording", {
       state: {
         route: safeRoute,

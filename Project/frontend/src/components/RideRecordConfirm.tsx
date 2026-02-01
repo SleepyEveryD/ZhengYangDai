@@ -131,7 +131,7 @@ export default function RideRecordConfirm() {
         comment: segment?.notes ?? null,
       };
     });
-    console.log("streets with condition", streetsWithCondition);
+    //console.log("streets with condition", streetsWithCondition);
     
 
     const finalRide = {
@@ -281,7 +281,7 @@ export default function RideRecordConfirm() {
           setRoadConditionSegments(segments);
         }}
         onSave={({ issues, segments }) => {
-    // ⭐ 真正“保存 road condition 报告”
+     // ⭐ Persist road condition reports
     setIssues(issues);
     setRoadConditionSegments(segments);
     setConditionsConfirmed(true);
