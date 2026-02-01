@@ -41,17 +41,7 @@ export class StreetResolverService {
         coord: p.coord,
       });
     }
-    /*
-    console.log(
-        "[Street-Resolver.service] resolved streets =",
-        JSON.stringify(
-          [...map.values()],
-          null,
-          2
-        )
-      );
-      
-    */
+
 
     return [...map.values()];
   }

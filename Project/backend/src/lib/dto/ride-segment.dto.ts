@@ -21,7 +21,7 @@ export const SegmentReportSchema = z.object({
 
 export const RideSegmentSchema = z.object({
   orderIndex: z.number().int().nonnegative(),
-  geometry: z.any(), // GeoJSON，后端不解析
+  geometry: z.any(), // GeoJSON，but zod doesn't have built-in GeoJSON support
   lengthM: z.number().positive(),
   report: SegmentReportSchema,
 });
