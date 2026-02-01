@@ -40,10 +40,10 @@ describe('PUT /rides/:rideId/segments (e2e)', () => {
   });
 
   it('should save segments for a draft ride', async () => {
-    // 1️⃣ 用 Service 创建一个 DRAFT Ride（真实逻辑）
+    // 1. use Service to create a DRAFT Ride
     const rideId = await rideService.createDraftRideForTest(userId);
 
-    // 2️⃣ 调用 PUT 接口
+    // 2. call the PUT /rides/:rideId/segments endpoint
     await request(app.getHttpServer())
       .put(`/rides/${rideId}/segments`)
       .set('Authorization', `Bearer ${token}`)
@@ -66,7 +66,7 @@ describe('PUT /rides/:rideId/segments (e2e)', () => {
       })
       .expect(200);
 
-    // 3️⃣ 直接查数据库断言
+    // 3. verify in DB
     const segments = await prisma.rideSegment.findMany({
       where: { rideId },
       include: { report: true },

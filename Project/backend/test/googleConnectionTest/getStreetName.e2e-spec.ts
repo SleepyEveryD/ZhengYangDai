@@ -9,7 +9,7 @@ describe('PathReport – Resolve Streets (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    // ✅ 确保 Google API Key 存在
+    // Ensure Google API Key exists
     expect(process.env.GOOGLE_MAPS_API_KEY).toBeDefined();
 
     const moduleRef = await Test.createTestingModule({
@@ -25,7 +25,7 @@ describe('PathReport – Resolve Streets (e2e)', () => {
   });
 
   it('should resolve streets from sampled GeoJSON route', async () => {
-    // ✅ 你给的 mock 路线
+    // mock route GeoJSON (LineString)
     const routeGeoJsonMock: GeoJSON.LineString = {
       type: 'LineString',
       coordinates: [
@@ -41,7 +41,7 @@ describe('PathReport – Resolve Streets (e2e)', () => {
       ],
     };
 
-    // ✅ 直接在测试里把 LineString → 前端已抽样点
+    // prepare request payload
     const points = routeGeoJsonMock.coordinates.map(
       (coord, index) => ({
         index,
@@ -51,17 +51,17 @@ describe('PathReport – Resolve Streets (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post('/report/resolve-streets')
-      .send({ points })
-      .expect(201 || 200); // 取决于你 controller 用 Post 还是 HttpCode
+      .send({ points });
+    expect([200, 201]).toContain(res.status);
 
-    // ===== 基本结构校验 =====
+    // ===== basic structure verification =====
     expect(res.body).toHaveProperty('streets');
     expect(Array.isArray(res.body.streets)).toBe(true);
     expect(res.body.streets.length).toBeGreaterThan(0);
 
     const street = res.body.streets[0];
 
-    // ===== street 字段校验 =====
+    // ===== street field verification =====
     expect(street).toHaveProperty('externalId');
     expect(typeof street.externalId).toBe('string');
 
@@ -71,7 +71,7 @@ describe('PathReport – Resolve Streets (e2e)', () => {
     expect(street).toHaveProperty('city');
     expect(street).toHaveProperty('country');
 
-    // ===== positions 校验 =====
+    // ===== positions verification =====
     expect(street).toHaveProperty('positions');
     expect(Array.isArray(street.positions)).toBe(true);
     expect(street.positions.length).toBeGreaterThan(0);
@@ -84,7 +84,7 @@ describe('PathReport – Resolve Streets (e2e)', () => {
     expect(Array.isArray(pos.coord)).toBe(true);
     expect(pos.coord.length).toBe(2);
 
-    // 👉 调试输出（很有用）
+    /* debug output
     console.log(
       'Resolved streets:',
       res.body.streets.map((s) => ({
@@ -93,6 +93,6 @@ describe('PathReport – Resolve Streets (e2e)', () => {
         country: s.country,
         points: s.positions.length,
       }))
-    );
+    );*/
   });
 });

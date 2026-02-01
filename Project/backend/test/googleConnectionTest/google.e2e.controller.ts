@@ -10,7 +10,7 @@ describe('Google Roads API connectivity (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [GoogleE2EModule], // ✅ 关键：不要直接塞 controller
+      imports: [GoogleE2EModule], // key point: do not directly add controller
     }).compile();
 
     app = moduleRef.createNestApplication();
