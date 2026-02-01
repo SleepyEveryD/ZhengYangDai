@@ -17,7 +17,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // ✅ 不再用 0 作为初始值
+  // ✅ Do not use 0 as the initial value
   const [totalRides, setTotalRides] = useState<number | null>(null);
   const [totalReports, setTotalReports] = useState<number | null>(null);
   const [totalDistanceKm, setTotalDistanceKm] = useState<number | null>(null);
@@ -39,7 +39,7 @@ export default function Profile() {
         setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
       })
       .catch((err) => {
-        console.error("[PROFILE_FETCH_ERROR]", err);
+        //console.error("[PROFILE_FETCH_ERROR]", err);
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -56,7 +56,7 @@ export default function Profile() {
 
     const { error } = await supabase.auth.signOut();
     if (error) {
-      console.error(error);
+      //console.error(error);
       return;
     }
     localStorage.clear();
@@ -99,7 +99,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* ✅ Stats —— 方案 A */}
           {isLoading ? (
             <div className="grid grid-cols-3 gap-4 text-center">
               <div className="text-white/70">Loading…</div>

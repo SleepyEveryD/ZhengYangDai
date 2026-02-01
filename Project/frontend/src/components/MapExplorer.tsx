@@ -19,7 +19,7 @@ type MapExplorerProps = {
 export default function MapExplorer({ user }: MapExplorerProps) {
   const navigate = useNavigate();
 
-  // 当前定位（[lat, lng]）
+  // current location [lat, lng]）
   const [currentLocation, setCurrentLocation] = useState<[number, number] | undefined>(undefined);
   const [locReady, setLocReady] = useState(false);
   const [highlightedPath, setHighlightedPath] = useState<[number, number][]>([]);
@@ -42,7 +42,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
         setLocReady(true);
       },
       () => {
-        // 定位失败：不阻塞页面
+        // if locating failed, do not block the page 
         setLocReady(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -70,12 +70,12 @@ export default function MapExplorer({ user }: MapExplorerProps) {
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log("route result:", data);
+        //console.log("route result:", data);
         setHighlightedPath(data.highlightedPath ?? []);
         setIssues([]);
       })
       .catch((err) => {
-        console.error("failed to fetch analyze route", err);
+        //console.error("failed to fetch analyze route", err);
       });
   }, [currentLocation]);
   

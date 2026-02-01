@@ -75,7 +75,7 @@ export default function RideDetail() {
 
         /**
          * ============================
-         * ✅ CONFIRMED：只信 API
+         * ✅ CONFIRMED: trust API only
          * ============================
          */
         if (adapted.status === "CONFIRMED") {
@@ -93,14 +93,14 @@ export default function RideDetail() {
             }
             ))
           );
-          console.log(" this ride is confirmed", adapted.streets);
+          //console.log(" this ride is confirmed", adapted.streets);
 
           return;
         }
 
         /**
          * ============================
-         * ✏️ DRAFT：前端推导
+         * ✏️ DRAFT：derived on frontend
          * ============================
          */
         let streets: any[] = [];
@@ -113,13 +113,13 @@ export default function RideDetail() {
                 routeGeoJson
               );
           } catch (err) {
-            console.error("[RIDE_DETAIL] resolve streets failed", err);
+            //console.error("[RIDE_DETAIL] resolve streets failed", err);
           }
         }
 
         setResolvedStreets(streets);
 
-        // ⚠️ 只在有 positions 时才 build
+        // ⚠️ Only build segments when positions are available
         setSegments(
           streets.length > 0
             ? buildSegmentsFromStreets({
@@ -129,7 +129,7 @@ export default function RideDetail() {
             : []
         );
       } catch (err) {
-        console.error("[RIDE_DETAIL_FETCH_ERROR]", err);
+        //console.error("[RIDE_DETAIL_FETCH_ERROR]", err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -140,7 +140,7 @@ export default function RideDetail() {
     };
   }, [rideId]);
 
-  // ✅ 当 ride 加载完成后，同步 weather（只做一次）
+  // ✅ Sync weather after ride is loaded (run once)
   useEffect(() => {
     if (ride?.weather) {
       setWeather(ride.weather);
@@ -174,7 +174,7 @@ export default function RideDetail() {
   };
 
   /**
-   * ⭐ Confirm（只可能是 DRAFT）
+   * ⭐ Confirm (DRAFT only)
    */
   const handleConfirmEdit = () => {
     if (!ride) return;
@@ -224,7 +224,7 @@ export default function RideDetail() {
     saveRideLocal(payload);
     window.dispatchEvent(new Event(RIDE_QUEUE_UPDATED));
 
-    // UI 同步
+    // Sync UI state
     setRide({
       ...ride,
       status: "CONFIRMED",
@@ -391,16 +391,16 @@ export default function RideDetail() {
   defaultTab="issues"
 
   onChange={({ issues, segments }) => {
-    // 编辑中（草稿）
+    // Editing (draft state)
     setIssues(issues);
     setSegments(segments);
   }}
 
   onSave={({ issues, segments }) => {
-    // ⭐ 真正保存
+     // ⭐ Persist changes
     setIssues(issues);
     setSegments(segments);
-    setHasSavedChanges(true); // 让 Confirm 按钮亮
+    setHasSavedChanges(true); // enable Confirm button
   }}
 />
 

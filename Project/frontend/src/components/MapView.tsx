@@ -8,7 +8,7 @@ type ColoredPath = {
   id: string;
   path: [number, number][];
   color: string;
-  weight?: number; // 线粗，选中时用
+  weight?: number; // bold line, used when it's selected
 };
 
 
@@ -89,13 +89,13 @@ export default function MapView({
   const issueMarkersRef = useRef<any[]>([]);
   const clickListenerRef = useRef<any>(null);
 
-  // 只 fitBounds 一次（避免每次 path 更新都缩放）
+  // Fit bounds only once (avoid re-zooming on every path update)
   const didFitBoundsRef = useRef(false);
 
   const fallbackCenter = useMemo(() => {
     if (currentLocation) return { lat: currentLocation[0], lng: currentLocation[1] };
     if (userPath.length) return { lat: userPath[userPath.length - 1][0], lng: userPath[userPath.length - 1][1] };
-    return { lat: 45.4642, lng: 9.19 }; // ✅ 不要默认北京
+    return { lat: 45.4642, lng: 9.19 }; 
   }, [currentLocation, userPath]);
 
   const didSnapToUserRef = useRef(false);
@@ -117,7 +117,7 @@ export default function MapView({
 
     if (count === 0) return;
 
-    // ✅ 解决容器尺寸变化导致的偏移
+    // ✅ Fix offset caused by container size changes
     google.maps.event.trigger(mapRef.current, "resize");
     mapRef.current.fitBounds(bounds, 40); // padding 40px
   };
@@ -135,7 +135,7 @@ export default function MapView({
     didSnapToUserRef.current = true;
   }, [mapReady, currentLocation]);
 
-  /* ---------- Init Map (只执行一次) ---------- */
+  /* ---------- Init Map (only do once) ---------- */
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     if (!apiKey || !mapDivRef.current) return;
@@ -166,18 +166,18 @@ export default function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- 画多条路线（paths） ---------- */
+  /* ---------- draw multiple paths ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
 
-    // 1️⃣ 先清掉旧的多路线
+  // 1️⃣ Clear existing multi-path polylines
     multiPathPolylinesRef.current.forEach((pl) => pl.setMap(null));
     multiPathPolylinesRef.current = [];
 
     if (!paths || paths.length === 0) return;
 
-    // 2️⃣ 逐条画
+  // 2️⃣ Render each path
     paths.forEach((p) => {
       if (!p.path || p.path.length < 2) return;
 
@@ -195,7 +195,7 @@ export default function MapView({
     });
   }, [mapReady, paths]);
 
-  /* ---------- 绑定点击事件 ---------- */
+/* ---------- Bind click events ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -220,7 +220,7 @@ export default function MapView({
   }, [mapReady, onMapClick]);
   
 
-  /* ---------- userPath 首次可用时 fitBounds 一次 ---------- */
+/* ---------- Fit bounds once when userPath becomes available ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     if (!followUser) return;
@@ -234,7 +234,7 @@ export default function MapView({
     didFitBoundsRef.current = true;
   }, [mapReady, userPath]);
 
-  /* ---------- 更新中心点（仅在 followUser=true 时跟随） ---------- */
+/* ---------- Update center (follow only when followUser = true) ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (!followUser) return;
@@ -268,7 +268,7 @@ export default function MapView({
   }, [mapReady, highlightedPath, paths]);
 
 
-  /* ---------- 当前用户位置 marker ---------- */
+  /* ---------- current user location marker ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     if (!currentLocation) return;
@@ -280,7 +280,7 @@ export default function MapView({
       userMarkerRef.current = new google.maps.Marker({
         position: pos,
         map: mapRef.current,
-        // ✅ 一个简单的“蓝点”样式
+        // ✅ a simple blue point 
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 7,
@@ -300,7 +300,7 @@ export default function MapView({
   }, [mapReady, currentLocation]);
 
 
-  /* ---------- 画 userPath polyline ---------- */
+  /* ---------- draw userPath polyline ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -322,7 +322,7 @@ export default function MapView({
     userPathPolylineRef.current.setMap(mapRef.current);
   }, [mapReady, userPath]);
 
-  /* ---------- 画 issues markers ---------- */
+  /* ---------- draw issues markers ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
@@ -340,12 +340,12 @@ export default function MapView({
   }, [mapReady, issues]);
 
 
-  /* ---------- 高亮 segment（兼容 index & path 两种方式） ---------- */
+/* ---------- Highlight segment (supports both index- and path-based modes) ---------- */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) return;
     const google = window.google;
 
-    // 清掉旧的高亮
+    // Clear previous highlight
     if (selectedSegmentPolylineRef.current) {
       selectedSegmentPolylineRef.current.setMap(null);
       selectedSegmentPolylineRef.current = null;
@@ -353,11 +353,11 @@ export default function MapView({
 
     let pathToHighlight: [number, number][] | null = null;
 
-    // ⭐ 优先使用 highlightedPath（road condition 场景）
+    // ⭐ Prefer highlightedPath (road condition scenario)
     if (highlightedPath && highlightedPath.length >= 2) {
       pathToHighlight = highlightedPath;
     }
-    // 🟡 兼容旧逻辑：通过 index 高亮
+    // 🟡 Backward compatibility: highlight by index
     else if (selectedSegment && userPath.length) {
       const { startIndex, endIndex } = selectedSegment;
       if (startIndex !== null) {
@@ -380,7 +380,7 @@ export default function MapView({
       geodesic: true,
       strokeOpacity: 1,
       strokeWeight: 7,
-      strokeColor: "#f97316", // 🟠 高亮色（橙色）
+      strokeColor: "#f97316", // 🟠 Highlight color (orange)
       zIndex: 10,
     });
 

@@ -7,15 +7,16 @@ import type { User } from "../types/user";
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  console.log("🟢 AuthProvider mounted");
+  //console.log("🟢 AuthProvider mounted");
   
 
 
   useEffect(() => {
-    console.log("🟢 AuthProvider useEffect start");
-    // 页面刷新时恢复 session
+    //console.log("🟢 AuthProvider useEffect start");
+    // Restore session on page refresh
+
     supabase.auth.getSession().then(({ data }) => {
-        console.log("🟢 getSession result:", data.session);
+        //console.log("🟢 getSession result:", data.session);
       if (data.session?.user) {
         setUser({
           id: data.session.user.id,
@@ -26,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    // 监听登录 / 登出
+     // Listen for login / logout events
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {

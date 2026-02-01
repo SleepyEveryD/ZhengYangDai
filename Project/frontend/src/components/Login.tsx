@@ -21,15 +21,15 @@ export default function Login() {
   React.useEffect(() => {
   let mounted = true;
 
-  // 1) 初始检查（避免闪一下）
+  // 1) initial check, avoid flash 
   supabase.auth.getSession().then(({ data }) => {
     if (!mounted) return;
     if (data.session) navigate("/map", { replace: true });
   });
 
-  // 2) 监听登录/登出状态变化
+  // 2) listen to login/logout status change
   const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-    console.log("🟡 auth state:", _event, session);
+    //console.log("🟡 auth state:", _event, session);
     if (session) {
       navigate("/map", { replace: true });
     }
@@ -66,17 +66,17 @@ export default function Login() {
       password,
     });
   
-    console.log("🔵 signInWithPassword raw data:", data);
+    //console.log("🔵 signInWithPassword raw data:", data);
   
     if (error) {
-      console.error("🔴 login error:", error);
+      //console.error("🔴 login error:", error);
       alert(error.message);
       return;
     }
   
-    console.log("✅ session:", data.session);
-    console.log("✅ access_token:", data.session?.access_token);
-    console.log("✅ user:", data.session?.user);
+    //console.log("✅ session:", data.session);
+    //console.log("✅ access_token:", data.session?.access_token);
+    //console.log("✅ user:", data.session?.user);
   
     navigate("/map");
   };
@@ -111,7 +111,7 @@ export default function Login() {
       return;
     }
   
-    console.log("🟣 signUp result:", data);
+    //console.log("🟣 signUp result:", data);
   
     // ✅ show alert: go to confirm email
     setShowVerifyTip(true);

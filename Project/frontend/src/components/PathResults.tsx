@@ -43,13 +43,14 @@ type BackendRoute = {
   duration: number;
   path: [number, number][];
 
-  // 后端可能仍然返回 condition，但我们不再信它（完全由 score 映射）
+  // Backend may still return condition, but it is no longer trusted
+  // (condition is fully derived from score)
   condition?: string;
 
-  // ✅ 后端应返回 score（用于排序 & 映射 condition）
+  // ✅ Backend should return score (used for sorting & condition mapping)
   score?: number;
 
-  // 可解释信息（可选）
+  // Explainability info (optional)
   confidence?: number;
   explain?: ExplainPayload;
   streetIds: string[];
@@ -62,8 +63,10 @@ type NavState = {
 };
 
 /** =========
- *  Score -> Condition 映射规则（你可以按论文/老师要求改阈值）
- *  - 完全由 final score 决定 excellent/good/fair/needRepair
+ *  Score -> Condition mapping rules
+ *  (thresholds can be adjusted based on paper / instructor requirements)
+ *  - Condition is fully determined by final score:
+ *    excellent / good / fair / needRepair
  * ========= */
 function conditionFromScore(score: number): Route["condition"] {
   if (score >= 90) return "excellent";
@@ -142,50 +145,51 @@ export default function PathResults() {
         
 
         const data = await res.data;
-        console.log("DEBUG routes from backend:", data.routes);
+        //console.log("DEBUG routes from backend:", data.routes);
 
         const list: BackendRoute[] = Array.isArray(data.routes) ? data.routes : [];
 
-        // ✅ 防御：没有 score 的 route 一律当 0 分
+        // ✅ Defensive: routes without score are treated as score = 0
         const normalized = list.map((r) => ({
           ...r,
           score: typeof r.score === "number" ? r.score : 0,
         }));
         normalized.forEach((r) => {
-  console.log("Route from backend:", r.id, r.streetIds);
+  //console.log("Route from backend:", r.id, r.streetIds);
 });
 
-        // ✅ 前端再排序一次，确保 Recommended 永远是最高分（避免后端忘了 sort）
+        // ✅ Sort again on frontend to ensure "Recommended" is always highest score
+        // (in case backend forgets to sort)
         normalized.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
         setRoutes(normalized);
         setSelectedRouteId(normalized?.[0]?.id || "");
 
-        // ✅ Debug：解释得分来源（可删）
+        // ✅ Debug: explain score composition (can be removed)
         normalized.forEach((route, idx) => {
           const score = route.score ?? 0;
           const cond = conditionFromScore(score).toUpperCase();
 
-          console.group(`🛣 Route ${idx + 1} (${cond})`);
-          console.log("Final score:", score);
+          //console.group(`🛣 Route ${idx + 1} (${cond})`);
+          //console.log("Final score:", score);
 
           if (route.explain?.roadCondition) {
-            console.log("Road condition decision:", route.explain.roadCondition);
+            //console.log("Road condition decision:", route.explain.roadCondition);
           } else {
-            console.log("Road condition decision: (no explain from backend)");
+            //console.log("Road condition decision: (no explain from backend)");
           }
 
           if (route.explain?.efficiency) {
-            console.log("Efficiency decision:", route.explain.efficiency);
+            //console.log("Efficiency decision:", route.explain.efficiency);
           }
 
           if (route.explain?.finalScoreFormula) {
-            console.log("Formula:", route.explain.finalScoreFormula);
+            //console.log("Formula:", route.explain.finalScoreFormula);
           }
-          console.groupEnd();
+          //console.groupEnd();
         });
       } catch (err) {
-        console.error("failed to fetch routes", err);
+        //console.error("failed to fetch routes", err);
         setRoutes([]);
       } finally {
         setLoading(false);
@@ -273,7 +277,7 @@ export default function PathResults() {
                         {index === 0 && (
                           <Badge className="bg-green-600">Recommended</Badge>
                         )}
-                        {/* ✅ 显示分数，让用户知道“推荐”怎么来的 */}
+                        {/* ✅ Show score so users understand why a route is "Recommended" */}
                         <Badge variant="outline">{score.toFixed(1)}</Badge>
                       </div>
                       <p className="text-xs text-gray-500">
@@ -311,12 +315,12 @@ export default function PathResults() {
                     className="w-full mt-3"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // ✅ 传过去时把前端计算的 condition 一并传，详情页保持一致
+                      // ✅ Pass frontend-derived condition along for consistency on detail page
                       navigate(`/path/${route.id}`, {
                         state: {
                           route: {
                             ...route,
-                            condition: cond, // 覆盖/补全 condition
+                            condition: cond, // add condition
                           },
                         },
                       });

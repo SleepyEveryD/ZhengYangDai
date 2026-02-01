@@ -2,6 +2,6 @@ export function forceLogout() {
   localStorage.clear();
   sessionStorage.clear();
 
-  // replace 防止用户点返回
+  // replace avoid user goes back
   window.location.replace('/login');
 }

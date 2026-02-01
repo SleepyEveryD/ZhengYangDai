@@ -28,8 +28,8 @@ export default function PathPlanning({ }: PathPlanningProps) {
 
 
 
-  // ✅ 页面加载就定位到用户（米兰）
-useEffect(() => {
+  // ✅ Locate user on page load (Milan)
+  useEffect(() => {
   if (!navigator.geolocation) return;
 
   navigator.geolocation.getCurrentPosition(
@@ -37,7 +37,7 @@ useEffect(() => {
       setOriginCoords([pos.coords.latitude, pos.coords.longitude]);
     },
     (err) => {
-      console.warn("geolocation error", err);
+      //console.warn("geolocation error", err);
     },
     { enableHighAccuracy: true, timeout: 8000 }
   );
@@ -55,7 +55,7 @@ const useCurrentLocation = () => {
     },
     (err) => {
       alert("Failed to get current location");
-      console.error(err);
+      //console.error(err);
     },
     { enableHighAccuracy: true, timeout: 8000 }
   );

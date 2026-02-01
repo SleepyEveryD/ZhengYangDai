@@ -65,7 +65,7 @@ export default function IssueList({
   );
 }
 
-/* ---------------- helpers（与 Confirm 页面保持一致） ---------------- */
+/* ---------------- helpers consistent with confirm page ---------------- */
 
 function getIssueTypeText(type: unknown) {
   const value = String(type).toLowerCase();

@@ -55,11 +55,11 @@ export function adaptRideDetailFromApi(
       ? +(distanceKm / (duration / 3600)).toFixed(1)
       : 0;
 
-  // ⚡ 简单 maxSpeed（基于相邻点）
+  // ⚡ simple maxSpeed calculation
   let maxSpeed = 0;
   for (let i = 1; i < path.length; i++) {
     const d = distanceInMeters(path[i - 1], path[i]);
-    const speed = (d / 1000) / (5 / 3600); // 假设 5 秒采样
+    const speed = (d / 1000) / (5 / 3600); // assume sample every 5 sec
     maxSpeed = Math.max(maxSpeed, speed);
   }
   const streets =

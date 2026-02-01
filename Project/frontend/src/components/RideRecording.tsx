@@ -17,23 +17,26 @@ import type { RideStreet } from "../types/rideStreet";
 
 /**
  * TRACK_MODE:
- * - "real": 用真实 GPS 轨迹（watchPosition）
- * - "demo": 用后端 Directions 路线（沿道路）推进（不会穿墙）
+ * - "real": use real GPS track (watchPosition)
+ * - "demo": simulate movement along backend Directions route
+ *           (follows roads, no cutting through buildings)
  */
+
 const TRACK_MODE: "real" | "demo" = "real";
 
-/** Demo 速度（m/s）：4~7 比较像骑行 */
+/** Demo speed (m/s): 4–7 feels like cycling */
 const DEMO_SPEED_MPS = 5.5;
 
 /**
- * GPS 噪声（米）
- * ✅ 为了“不穿墙”，建议 0~1m
- * 如果你加大噪声，点会偏离道路（又会穿进建筑）
+ * GPS noise (meters)
+ * ✅ To avoid "cutting through buildings", keep it at 0–1m
+ * Increasing noise will cause points to drift off the road
  */
+
 const DEMO_NOISE_M = 0.5;
 
-// 录制过滤参数（骑行友好）
-const MIN_DIST_M = 8; // ✅ 50 太大，会跳点；8~12 更像骑行
+// Recording filters (cycling-friendly)
+const MIN_DIST_M = 8; // ✅ 50 is too large; 8–12 feels more natural for cycling
 const MIN_TIME_MS = 2500;
 const MIN_TURN_DEG = 25;
 
@@ -126,7 +129,7 @@ const metersToLng = (m: number, lat: number) =>
 type Segment = {
   a: [number, number];
   b: [number, number];
-  index: number; // a 在 route 里的 index
+  index: number; // index in route
 };
 
 const buildSegments = (route: [number, number][]): Segment[] => {
@@ -148,10 +151,9 @@ const projectPointToSegment = (
   b: [number, number]
 ): {
   projected: [number, number];
-  t: number; // 0~1，表示在线段 a→b 上的位置
-  dist: number; // 投影点到 p 的距离（米）
+  t: number; // 0–1, position on segment a → b
+  dist: number; // distance from the projected point to p in meter
 } => {
-  // 向量 AP、AB
   const ax = a[1];
   const ay = a[0];
   const bx = b[1];
@@ -167,7 +169,7 @@ const projectPointToSegment = (
   const abLen2 = abx * abx + aby * aby;
 
   let t = abLen2 === 0 ? 0 : (apx * abx + apy * aby) / abLen2;
-  t = Math.max(0, Math.min(1, t)); // clamp 到线段内
+  t = Math.max(0, Math.min(1, t)); // clamp within segment
 
   const projX = ax + abx * t;
   const projY = ay + aby * t;
@@ -228,7 +230,7 @@ const geoJsonToPath = (geo: GeoJSON.LineString): [number, number][] => {
   return geo.coordinates.map(([lng, lat]) => [lat, lng]);
 };
 
-// 点带时间戳：用于正确计算速度
+// Track point with timestamp (for accurate speed calculation)
 type TrackPoint = { lat: number; lng: number; t: number };
 
 const computeStatsFromTrack = (track: TrackPoint[]) => {
@@ -278,25 +280,26 @@ export default function RideRecording() {
   useState<[number, number][]>([]);
 
 
-  // 基准位置（用于 demo 起点）
+  // Track point with timestamp (for accurate speed calculation)
   const baseRef = useRef<[number, number] | null>(null);
 
-  // 真正录制：带 timestamp
+  // Actual recorded track with timestamps
   const trackRef = useRef<TrackPoint[]>([]);
   const lastKeptAtRef = useRef<number>(0);
 
-  // demo：沿路线路径推进
+  // Demo mode refs
   const demoRouteRef = useRef<[number, number][]>([]);
   const demoRouteReadyRef = useRef(false);
-  const demoSegRef = useRef(0); // 当前 segment index
-  const demoTRef = useRef(0); // 当前 segment 内插值 0~1
+  const demoSegRef = useRef(0); 
+  const demoTRef = useRef(0); 
   const preparingDemoRouteRef = useRef(false);
 
   const getBase = useMemo(() => {
     return () => baseRef.current ?? [45.4642, 9.19];
   }, []);
 
-  // 统一入点：距离阈值 + 转弯阈值 + 时间兜底
+  // Unified point ingestion:
+  // distance threshold + turn threshold + time fallback
   const pushPoint = (p: [number, number], t: number) => {
     const pts = trackRef.current;
 
@@ -330,8 +333,9 @@ export default function RideRecording() {
   };
 
   /**
-   * ✅ 关键：准备 demo 路线（沿道路）
-   * 用你后端 /map/analyze 返回的 routes[0].path（[lat,lng][]) 作为 demo 轨迹模板
+   * ✅ Key step: prepare the demo route (road-following)
+   * Uses `routes[0].path` ([lat, lng][]) returned by the backend `/map/analyze`
+   * endpoint as the trajectory template for demo mode.
    */
   const prepareDemoRoute = async (base: [number, number]) => {
     if (preparingDemoRouteRef.current) return;
@@ -377,7 +381,7 @@ export default function RideRecording() {
       demoSegRef.current = 0;
       demoTRef.current = 0;
 
-      // 起点对齐到路线第一个点，避免第一帧跳动
+      // Align the starting position to the first route point to avoid an initial jump
       baseRef.current = demoPath[0];
       pushPoint(demoPath[0], Date.now());
     } catch (e) {
@@ -390,7 +394,8 @@ export default function RideRecording() {
     }
   };
 
-  // 初始化定位：第一帧正确 + demo 路线准备
+  // Initial positioning: correct first frame and demo route preparation
+
   useEffect(() => {
     let cancelled = false;
     const fallback: [number, number] = [45.4642, 9.19];
