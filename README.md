@@ -90,7 +90,7 @@ Start the frontend application:
 - npm run dev
 
 
-Once started, the frontend will be accessible via a local development server (e.g., http://localhost:3000).
+Once started, the frontend will be accessible via a local development server.
 
 3. Notes
 
