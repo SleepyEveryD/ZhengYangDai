@@ -8,5 +8,5 @@ export function AppWithUploader() {
 
   useRideUploader(); 
 
-  return <AppRoutes />; // ✅ 关键点
+  return <AppRoutes />; 
 }

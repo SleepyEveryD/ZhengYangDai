@@ -55,7 +55,8 @@ export default function RoadConditionList({
   );
 }
 
-/* ---------------- helpers（和 Confirm Page 一致） ---------------- */
+
+// Get display text for road condition
 
 function getConditionText(condition: string) {
   switch (condition) {

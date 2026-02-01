@@ -1,4 +1,5 @@
-/*地图点选路径*/
+
+//selected path point to find nearest path index
 export function findNearestPathIndex(
   path: [number, number][],
   point: [number, number]
@@ -9,7 +10,7 @@ export function findNearestPathIndex(
   for (let i = 0; i < path.length; i++) {
     const dLat = path[i][0] - point[0];
     const dLng = path[i][1] - point[1];
-    const dist = dLat * dLat + dLng * dLng; // ✅ 用平方距离就够了（不用开根号更快）
+    const dist = dLat * dLat + dLng * dLng; // squared distance
     if (dist < bestDist) {
       bestDist = dist;
       bestIndex = i;

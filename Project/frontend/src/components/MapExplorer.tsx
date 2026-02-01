@@ -122,7 +122,7 @@ export default function MapExplorer({ user }: MapExplorerProps) {
 
       {/* Map */}
       <div className="flex-1 relative">
-        {/* ✅ 关键：定位 ready 后强制重建 MapView，让它用真实 currentLocation 初始化 */}
+        
         <MapView
           key={locReady ? "map-loc-ready" : "map-loc-wait"}
           currentLocation={currentLocation}

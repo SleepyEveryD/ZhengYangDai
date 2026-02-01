@@ -82,13 +82,13 @@ export default function RideHistory() {
         const merged: Ride[] = settled.map((r, idx) => {
           if (r.status === "fulfilled") return r.value;
 
-          console.error("[RIDE_DETAIL_FETCH_FAIL]", res.items[idx].id, r.reason);
+          //console.error("[RIDE_DETAIL_FETCH_FAIL]", res.items[idx].id, r.reason);
           return adaptRideFromApi(res.items[idx]);
         });
 
         setRides(merged);
       } catch (err) {
-        console.error("[RIDES_FETCH_ERROR]", err);
+        //console.error("[RIDES_FETCH_ERROR]", err);
       } finally {
         if (mounted) setIsLoading(false);         
         // ✅ Only stop loading after all rides (including details) are loaded
@@ -112,7 +112,7 @@ export default function RideHistory() {
         setTotalDistanceKm(Number(data.totalDistanceKm ?? 0));
       })
       .catch((err) => {
-        console.error("[RIDES_PROFILE_FETCH_ERROR]", err);
+        //console.error("[RIDES_PROFILE_FETCH_ERROR]", err);
       });
 
     return () => {

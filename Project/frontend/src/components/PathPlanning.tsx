@@ -68,9 +68,9 @@ const useCurrentLocation = () => {
 
     navigate("/path/results", {
       state: {
-        originText: origin,          // 如果你想支持用户自己输入起点
-        originCoords: originCoords,               // ✅ 有坐标就优先用坐标
-        destinationText: destination, // 例如 "Milano Centrale"
+        originText: origin,          
+        originCoords: originCoords,   // could be null               
+        destinationText: destination, // like "Milano Centrale"
       },
     });
   };
@@ -106,7 +106,7 @@ const useCurrentLocation = () => {
               value={origin}
               onChange={(e) => {
                 setOrigin(e.target.value);
-                // 用户手输起点时，清掉坐标
+                //when user types origin, clear coords
                 setOriginCoords(null);
               }}
               className="h-12"

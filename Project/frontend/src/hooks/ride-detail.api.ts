@@ -52,13 +52,13 @@ export interface RideDetailApiResponse {
     coordinates: [number, number][];
   };
 
-  /** 天气信息（可能为空） */
+  // weather information (optional)
   weather?: RideWeatherApi | null;
 
-  /** 路段上报信息 */
+  // Street roadcondition reports
   reports: RideStreetReportApi[];
 
-  /** 路况问题点 */
+  //street issues reported during the ride
   issues: RideDetailIssueApi[];
 }
 

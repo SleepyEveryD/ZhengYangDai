@@ -11,14 +11,14 @@ export default function Weather({ value }: WeatherProps) {
   const [weather, setWeather] = useState<RideWeather | null>(value ?? null);
   const [error, setError] = useState<string | null>(null);
 
-  // 同步父组件传入的 value
+  // value from parent component
   useEffect(() => {
     if (value) {
       setWeather(value);
     }
   }, [value]);
 
-  // 自动获取（仅在没有 weather 时）
+  // auto-fetch (only if no weather)
   useEffect(() => {
     if (weather) return;
     if (!API_KEY) {

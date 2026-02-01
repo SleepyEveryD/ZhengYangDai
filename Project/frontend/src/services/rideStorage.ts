@@ -12,7 +12,7 @@ export function saveRideLocal(ride: Ride) {
     JSON.stringify(ride)
   );
 
-  console.log("after save", localStorage.getItem(STORAGE_KEY));
+  //console.log("after save", localStorage.getItem(STORAGE_KEY));
 }
 
 
