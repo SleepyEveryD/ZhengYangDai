@@ -1,4 +1,3 @@
-//Project/backend/test/jest-e2e.json
 {
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",

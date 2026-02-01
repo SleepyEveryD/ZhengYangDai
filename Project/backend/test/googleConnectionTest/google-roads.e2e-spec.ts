@@ -6,7 +6,7 @@ import axios from 'axios';
 
 describe('Google Roads API connectivity (e2e)', () => {
   it('should connect to Google Roads API and return snappedPoints', async () => {
-    // make sure .env has the API key
+    // ensure .env takes effect
     expect(process.env.GOOGLE_MAPS_API_KEY).toBeDefined();
 
     const res = await axios.get(

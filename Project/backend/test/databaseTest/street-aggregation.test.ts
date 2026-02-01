@@ -5,13 +5,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🚀 Starting street aggregation test...');
 
-  // ---------- 0. 清理旧数据（只清理测试相关表） ----------
+  // ---------- 0. Clean up old data (only clean up test-related tables) ----------
   await prisma.streetReport.deleteMany();
   await prisma.streetAggregation.deleteMany();
   await prisma.street.deleteMany();
   await prisma.ride.deleteMany();
 
-  // ---------- 1. 创建 Ride ----------
+  // ---------- 1. Create Ride ----------
   const ride1 = await prisma.$queryRaw<{ id: string }[]>`
     INSERT INTO "Ride" (
       id,
@@ -52,9 +52,9 @@ async function main() {
     RETURNING id
   `;
 
-  console.log('✅ Created rides');
+  //console.log('✅ Created rides');
 
-  // ---------- 2. 创建 Street ----------
+  // ---------- 2. Create Street ----------
   const street = await prisma.$queryRaw<{ id: string }[]>`
     INSERT INTO "Street" (
       id,
@@ -75,9 +75,9 @@ async function main() {
     RETURNING id
   `;
 
-  console.log('✅ Created street');
+  //console.log('✅ Created street');
 
-  // ---------- 3. 插入 StreetReport（触发 trigger） ----------
+  // ---------- 3. Insert StreetReport（--> trigger） ----------
   await prisma.streetReport.create({
     data: {
       userId: 'user_1',
@@ -98,21 +98,21 @@ async function main() {
     }
   });
 
-  console.log('✅ Created street reports');
+  //console.log('✅ Created street reports');
 
-  // ---------- 4. 验证聚合是否生成 ----------
+  // ---------- 4. Verify whether the aggregation is generated ----------
   const aggregation = await prisma.streetAggregation.findUnique({
     where: { streetId: street[0].id }
   });
 
-  console.log('📊 Aggregation result:');
-  console.log(JSON.stringify(aggregation, null, 2));
+  //console.log('📊 Aggregation result:');
+  //console.log(JSON.stringify(aggregation, null, 2));
 
   if (!aggregation) {
     throw new Error('❌ Aggregation was not created');
   }
 
-  console.log('🎉 Test passed: aggregation trigger works');
+  //console.log('🎉 Test passed: aggregation trigger works');
 }
 
 main()

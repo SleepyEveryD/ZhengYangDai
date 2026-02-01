@@ -40,10 +40,10 @@ describe('PUT /rides/:rideId/segments (e2e)', () => {
   });
 
   it('should save segments for a draft ride', async () => {
-    // make an draft ride with rideService
+    // 1. use Service to create a DRAFT Ride
     const rideId = await rideService.createDraftRideForTest(userId);
 
-    // make the PUT request to save segments
+    // 2. call the PUT /rides/:rideId/segments endpoint
     await request(app.getHttpServer())
       .put(`/rides/${rideId}/segments`)
       .set('Authorization', `Bearer ${token}`)
@@ -66,7 +66,7 @@ describe('PUT /rides/:rideId/segments (e2e)', () => {
       })
       .expect(200);
 
-    // check in DB
+    // 3. verify in DB
     const segments = await prisma.rideSegment.findMany({
       where: { rideId },
       include: { report: true },
