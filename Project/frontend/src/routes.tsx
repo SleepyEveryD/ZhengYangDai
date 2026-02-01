@@ -17,7 +17,8 @@ import MapPage from "./components/MapPage";
 export function AppRoutes() {
   return (
     <Routes>
-      {/* 默认入口 */}
+      {/*  default entrance */}
+
       <Route path="/" element={<Navigate to="/login" />} />
 
       <Route path="/login" element={<Login />} />

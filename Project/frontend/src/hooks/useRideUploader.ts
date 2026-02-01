@@ -9,20 +9,20 @@ export function useRideUploader() {
     let uploading = false;
 
     const upload = async () => {
-      if (uploading) return; // ✅ 防并发
+      if (uploading) return; // avoid concurrent uploads
       uploading = true;
 
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) {
-          console.log("📭 no ride in localStorage");
+          //console.log("📭 no ride in localStorage");
           return;
         }
 
         const ride = JSON.parse(raw);
 
         if (ride.uploadStatus !== "pending") {
-          console.log("⏭️ skip upload, uploadStatus:", ride.uploadStatus);
+          //console.log("⏭️ skip upload, uploadStatus:", ride.uploadStatus);
           return;
         }
 
@@ -32,11 +32,11 @@ export function useRideUploader() {
   
           await api.put(`/api/rides/${payload.id}/save`, payload);
         } else {
-          console.log("⬆️ confirming ride", payload.id);
+          //console.log("⬆️ confirming ride", payload.id);
           await api.post(`/api/rides/${payload.id}/confirm`, payload);
         }
 
-        // ✅ 2️⃣ 标记为 uploaded
+        // mark as uploaded
         const updatedRide = {
           ...ride,
           uploadStatus: "uploaded",
@@ -44,18 +44,18 @@ export function useRideUploader() {
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRide));
 
-        console.log("✅ upload success, marked as uploaded");
+        //console.log("✅ upload success, marked as uploaded");
       } catch (e) {
-        console.error("❌ upload failed", e);
+        //console.error("❌ upload failed", e);
       } finally {
         uploading = false;
       }
     };
 
-    // ⭐ 关键 1：监听 Confirm 触发的事件
+    // listen for ride queue update events
     window.addEventListener(RIDE_QUEUE_UPDATED, upload);
 
-    // ⭐ 关键 2：页面首次加载也跑一次（兜底）
+    // on mount, try
     upload();
 
     return () => {

@@ -76,8 +76,8 @@ export default function PathDetail() {
     }
   };
 
-//console.log("Route streetIds:", safeRoute.streetIds);
-useEffect(() => {
+    //console.log("Route streetIds:", safeRoute.streetIds);
+  useEffect(() => {
   if (!safeRoute.streetIds || safeRoute.streetIds.length === 0) {
     //console.log("No streetIds, skip fetching reports");
     return;
@@ -229,7 +229,7 @@ useEffect(() => {
         <Card key={index}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              {/* Avatar（固定匿名即可） */}
+              
               <Avatar className="w-10 h-10">
                 <AvatarFallback className="bg-green-600 text-white">
                   U

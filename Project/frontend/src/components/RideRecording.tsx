@@ -385,7 +385,7 @@ export default function RideRecording() {
       baseRef.current = demoPath[0];
       pushPoint(demoPath[0], Date.now());
     } catch (e) {
-      console.error("prepareDemoRoute failed", e);
+      //console.error("prepareDemoRoute failed", e);
       toast.error("Failed to prepare demo route.");
       demoRouteRef.current = [];
       demoRouteReadyRef.current = false;
@@ -443,7 +443,7 @@ useEffect(() => {
   }
 }, [selectedRoute]);
 
-  // 计时：只负责 UI 时间；距离/速度用真实 track 算
+  // Stats updater
   useEffect(() => {
     const timer = setInterval(() => {
       setDuration((prev) => prev + 1);
@@ -456,7 +456,7 @@ useEffect(() => {
     return () => clearInterval(timer);
   }, []);
 
-  // 轨迹录制：REAL / DEMO
+  // Location tracker
   useEffect(() => {
     if (TRACK_MODE === "real") {
       if (!("geolocation" in navigator)) return;
@@ -471,7 +471,7 @@ useEffect(() => {
           pushPoint(p, Date.now());
         },
         (err) => {
-          console.error(err);
+          //console.error(err);
           toast.error("GPS tracking failed.");
         },
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
@@ -480,9 +480,9 @@ useEffect(() => {
       return () => navigator.geolocation.clearWatch(watchId);
     }
 
-    // DEMO：沿后端路线推进（沿道路）+ 极小噪声（可选）
+    // Demo mode tracker
     const interval = setInterval(() => {
-      // 保险：如果还没准备好，就用当前位置再拉一次
+      // prepare demo route if not ready
       if (!demoRouteReadyRef.current) {
         const b = getBase();
         prepareDemoRoute(b);
@@ -498,7 +498,7 @@ useEffect(() => {
       let a = route[seg];
       let b = route[seg + 1];
 
-      const stepM = DEMO_SPEED_MPS; // 每秒前进的米数
+      const stepM = DEMO_SPEED_MPS; // per second
       const segLenM = haversineMeters(a, b);
       const dt = segLenM > 0 ? stepM / segLenM : 1;
 
@@ -511,7 +511,7 @@ useEffect(() => {
         b = route[seg + 1];
       }
 
-      // 到终点：循环（你也可以改成 stop）
+      // loop demo
       if (seg >= route.length - 1) {
         seg = 0;
         tt = 0;
@@ -519,11 +519,11 @@ useEffect(() => {
         b = route[1];
       }
 
-      // 插值推进（仍然沿路的 polyline 点连线）
+      // interpolate position
       let lat = lerp(a[0], b[0], tt);
       let lng = lerp(a[1], b[1], tt);
 
-      // ✅ 极小噪声（0~1m），保持“像 GPS”，但不会明显偏离道路
+      // small noise to simulate GPS inaccuracy
       if (DEMO_NOISE_M > 0) {
         const nLat = (Math.random() - 0.5) * 2 * metersToLat(DEMO_NOISE_M);
         const nLng = (Math.random() - 0.5) * 2 * metersToLng(DEMO_NOISE_M, lat);
@@ -539,7 +539,8 @@ useEffect(() => {
       baseRef.current = next;
       pushPoint(next, Date.now());
 
-      // issue demo（可选）
+
+      // issue demo (optional)
       if (Math.random() < 0.03) {
         const issueLoc: [number, number] = [
           next[0] + (Math.random() - 0.5) * metersToLat(2),
@@ -574,7 +575,7 @@ useEffect(() => {
 
 
   const handleStop = async () => {
-    console.log("stop clicked");
+    //console.log("stop clicked");
     
     const storedRide = getCurrentRide();
     if (!storedRide) return;
@@ -584,7 +585,8 @@ useEffect(() => {
       toast.error("Route too short. Ride was not saved.");
      
     
-      // ❌ 不保存，直接返回地图
+
+      // navigate back to /map
       navigate("/map", { replace: true });
     
       return;
@@ -604,7 +606,7 @@ useEffect(() => {
         routeGeoJson
       );
     } catch (err) {
-      console.error("RideRecording>> resolve streets failed", err);
+      //console.error("RideRecording>> resolve streets failed", err);
     }
 
     const stats = computeStatsFromTrack(trackRef.current);
@@ -666,13 +668,13 @@ const navigationPaths = useMemo(() => {
     {
       id: "route-passed",
       path: passed,
-      color: "#94a3b8", // 灰
+      color: "#94a3b8", // gray
       weight: 6,
     },
     {
       id: "route-remaining",
       path: remaining,
-      color: "#2563eb", // 蓝
+      color: "#2563eb", // blue
       weight: 6,
     },
   ];

@@ -35,7 +35,7 @@ export default function RideDetail() {
   const [ride, setRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 编辑态
+  // Editor state
   const [showEditor, setShowEditor] = useState(false);
   const [issues, setIssues] = useState<Ride["issues"]>([]);
   const [segments, setSegments] = useState<RoadConditionSegment[]>([]);
@@ -81,7 +81,7 @@ export default function RideDetail() {
         if (adapted.status === "CONFIRMED") {
           setResolvedStreets([]);
 
-          // 👉 不用 buildSegmentsFromStreets（没有 positions）
+          // directly build segments from confirmed streets
           setSegments(
             adapted.streets.map((s, index) => ({
               id: `confirmed-${index}`,

@@ -37,7 +37,8 @@ type MapViewProps = {
     endIndex: number | null;
   };
 
-  /** 录制页：跟随定位；确认页：不跟随（避免抢拖动） */
+  // recording page: follow user
+  // confirmation page: do not follow (to avoid interrupting user pan/zoom)
   followUser?: boolean;
 
 };

@@ -86,12 +86,12 @@ export default function RideRecordPrepare() {
 
             const ride = {
               id: crypto.randomUUID(),
-              userId: user.id, // ⬅️ 本地模式 / 未登录可用
+              userId: user.id, // used for unregistered user rides
               startedAt: now,
               endedAt: null,
               routeGeoJson: null,
             };
-            console.log("RideRecordPrepare.tsx>> now is at" + now);
+            //console.log("RideRecordPrepare.tsx>> now is at" + now);
             
             saveRideLocal(ride);
             navigate("/ride/recording");

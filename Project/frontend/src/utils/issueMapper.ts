@@ -1,10 +1,7 @@
 // this method is used in rideRecodConfirm file, used to convert 
 import type { Issue as RideIssue, IssueType } from '@/types/issue';
 
-/**
- * UI 层 Issue（地图 / 表单用）
- * ⚠️ 如果你已经有类型，可以直接 import
- */
+
 export type UiIssue = {
   id: string;
   type: string;
@@ -17,7 +14,7 @@ export type UiIssue = {
 };
 
 /**
- * UI issue type → Ride issue type 映射
+ * UI issue type → Ride issue type map
  */
 const issueTypeMap: Record<string, IssueType> = {
   pothole: 'POTHOLE',
@@ -28,7 +25,7 @@ const issueTypeMap: Record<string, IssueType> = {
 };
 
 /**
- * 把 UI Issue 转换成 Ride Issue
+ * Convert UI Issue to Ride Issue
  */
 export function mapUiIssueToRideIssue(
   uiIssue: UiIssue,

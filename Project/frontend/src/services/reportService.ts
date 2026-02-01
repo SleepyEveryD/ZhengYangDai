@@ -3,7 +3,7 @@ import type { RideStreet } from "../types/rideStreet";
 import type { ResolveStreetsResponse } from "../types/street";
 
 class RideRouteService {
-  // 📏 Haversine 距离计算（米）
+  // calculate the great-circle distance between two points
   private distanceInMeters(a: [number, number], b: [number, number]): number {
     const R = 6371000;
     const toRad = (v: number) => (v * Math.PI) / 180;
@@ -44,7 +44,7 @@ class RideRouteService {
     return this.normalizeRideStreets(res.data.streets);
   }
 
-  // 🧠 核心：合并 + 去重 + 排序 + 重编号
+  // aggregate streets that are likely the same
   private normalizeRideStreets(streets: RideStreet[]): RideStreet[] {
     const result: RideStreet[] = [];
 
@@ -85,9 +85,8 @@ class RideRouteService {
       }
     }
 
-    // 4️⃣ street 内按 route index 排序（不要重写 pos.index）
-    // ⚠️ 你后面 buildSegmentsFromStreets 依赖的是 route 的 index，
-    //     所以这里不要把 index 改成 0..n，否则会造成 segment 错位
+
+    // sort positions by index
     for (const street of result) {
       street.positions.sort((a, b) => a.index - b.index);
     }

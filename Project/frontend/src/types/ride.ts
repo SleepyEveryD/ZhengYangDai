@@ -15,10 +15,8 @@ export type Ride = {
   avgSpeed: number; // km/h
   maxSpeed: number; // km/h
 
-  routeGeoJson?: GeoJSON.LineString; // 可选
-  // routeGeometry ❌ 前端不用直接接 geography
-  streets?: RideStreet[]; // 如果你 include 了
-  issues?: Issue[];       // 如果是聚合结果
-  path?: any;
+  routeGeoJson?: GeoJSON.LineString; // optional
+  streets?: RideStreet[]; 
+  issues?: Issue[];       
   date?: string;
 };
