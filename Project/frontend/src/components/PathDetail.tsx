@@ -24,7 +24,7 @@ export default function PathDetail() {
   useParams<{ id: string; }>();
   const location = useLocation();
   const [streetReports, setStreetReports] = useState<any[]>([]);
-
+  
 
   const route = location.state?.route as Route | undefined;
 
@@ -85,7 +85,8 @@ export default function PathDetail() {
 
   const fetchStreetReports = async () => {
     try {
-      const res = await fetch("http://localhost:3000/map/street-reports", {
+      
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/map/street-reports`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
